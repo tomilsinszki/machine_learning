@@ -146,54 +146,55 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
      */
     protected function execute(InputInterface $input, OutputInterface $output) {
         $this->entityManager = $this->getContainer()->get('doctrine')->getManager();
+        
+        $connection = $this->entityManager->getConnection();
+        $connection->getConfiguration()->setSQLLogger(null);
 
         $this->loadMonthlyPeriods();
         $this->loadUserIds();
 
-        foreach ($this->userIds as $userId) {
-            $firstAndLastContactIdStatement = $this->entityManager->getConnection()->prepare("SELECT MIN(contact_id) AS `first`, MAX(contact_id) AS `last` FROM user_contact WHERE user_id={$userId}");
-            $firstAndLastContactIdStatement->execute();
-            $firstAndLastContactResult = $firstAndLastContactIdStatement->fetchAll();
+        foreach ($this->periods as $periodName => $period) {
+            foreach ($this->userIds as $userId) {
+                $firstAndLastContactIdStatement = $connection->prepare("SELECT MIN(contact_id) AS `first`, MAX(contact_id) AS `last` FROM user_contact WHERE user_id={$userId}");
+                $firstAndLastContactIdStatement->execute();
+                $firstAndLastContactResult = $firstAndLastContactIdStatement->fetchAll();
 
-            $firstContactId = $firstAndLastContactResult[0]['first'];
-            $lastContactId = $firstAndLastContactResult[0]['last'];
+                $firstContactId = $firstAndLastContactResult[0]['first'];
+                $lastContactId = $firstAndLastContactResult[0]['last'];
 
-            $signupDateStatement = $this->entityManager->getConnection()->prepare("SELECT `time` FROM Contact WHERE id={$firstContactId}");
-            $signupDateStatement->execute();
-            $signupDateString = $signupDateStatement->fetchColumn(0);
-            $signupDateString = substr($signupDateString, 0, 10);
+                $signupDateStatement = $connection->prepare("SELECT `time` FROM Contact WHERE id={$firstContactId}");
+                $signupDateStatement->execute();
+                $signupDateString = $signupDateStatement->fetchColumn(0);
+                $signupDateString = substr($signupDateString, 0, 10);
 
-            $contactDetailsStatement = $this->entityManager->getConnection()->prepare("SELECT `title`, `postalcode`, `language`, `birthday` FROM Contact WHERE id={$lastContactId}");
-            $contactDetailsStatement->execute();
-            $contactDetailsResult = $contactDetailsStatement->fetchAll();
-            $postalCode = $contactDetailsResult[0]['postalcode'];
-            $gender = $contactDetailsResult[0]['title'];
-            $language = $contactDetailsResult[0]['language'];
-            $birthday = $contactDetailsResult[0]['birthday'];
-            $birthday = substr($birthday, 0, 10);
+                $contactDetailsStatement = $connection->prepare("SELECT `title`, `postalcode`, `language`, `birthday` FROM Contact WHERE id={$lastContactId}");
+                $contactDetailsStatement->execute();
+                $contactDetailsResult = $contactDetailsStatement->fetchAll();
+                $postalCode = $contactDetailsResult[0]['postalcode'];
+                $gender = $contactDetailsResult[0]['title'];
+                $language = $contactDetailsResult[0]['language'];
+                $birthday = $contactDetailsResult[0]['birthday'];
+                $birthday = substr($birthday, 0, 4);
 
-            if ($gender === 'male') {
-                $gender = '1';
-            } elseif ($gender === 'female') {
-                $gender = '2';
-            } else {
-                $gender = '';
-            }
+                if ($gender === 'male') {
+                    $gender = '1';
+                } elseif ($gender === 'female') {
+                    $gender = '2';
+                } else {
+                    $gender = '';
+                }
 
-            if ($language === 'de') {
-                $language = '1';
-            } elseif ($language === 'fr') {
-                $language = '2';
-            }
+                if ($language === 'de') {
+                    $language = '1';
+                } elseif ($language === 'fr') {
+                    $language = '2';
+                }
 
-            $partnersStatement = $this->entityManager->getConnection()->prepare("SELECT id FROM Partner WHERE status='active'");
-            $partnersStatement->execute();
-            $partnerIdResults = $partnersStatement->fetchAll();
+                $partnersStatement = $connection->prepare("SELECT id FROM Partner WHERE status='active'");
+                $partnersStatement->execute();
+                $partnerIdResults = $partnersStatement->fetchAll();
 
-            foreach ($partnerIdResults as $partnerIdResult) {
-                $partnerId = intval($partnerIdResult['id']);
-
-                foreach ($this->periods as $periodName => $period) {
+                foreach ($partnerIdResults as $partnerIdResult) {
                     /** @var \DateTime $start */
                     $start = $period['start'];
 
@@ -209,20 +210,24 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
                         continue;
                     }
 
-                    $transactionStatement = $this->entityManager->getConnection()->prepare("SELECT SUM(programAmount) AS program_amount FROM cashback_transaction WHERE partner_id={$partnerId} AND user_id={$userId} AND '{$startString}'<=time AND time<='{$endString}'");
+                    $partnerId = intval($partnerIdResult['id']);
+
+                    $transactionStatement = $connection->prepare("SELECT SUM(programAmount) AS program_amount FROM cashback_transaction WHERE partner_id={$partnerId} AND user_id={$userId} AND '{$startString}'<=time AND time<='{$endString}'");
                     $transactionStatement->execute();
                     $transactionProgramAmountResults = $transactionStatement->fetchAll();
                     $transactionSumProgramAmount = empty($transactionProgramAmountResults[0]['program_amount']) ? 0.0 : $transactionProgramAmountResults[0]['program_amount'];
                     $transactionSumProgramAmount = number_format($transactionSumProgramAmount, '2', '.', '');
 
-                    $previousVisitCountStatement = $this->entityManager->getConnection()->prepare("SELECT COUNT(DISTINCT id) AS visit_count FROM PartnerVisit WHERE user_id={$userId} AND partner_id={$partnerId} AND time<\"{$start->format('Y-m-d')}\"");
+                    $previousVisitCountStatement = $connection->prepare("SELECT COUNT(DISTINCT id) AS visit_count FROM PartnerVisit WHERE user_id={$userId} AND partner_id={$partnerId} AND time<\"{$start->format('Y-m-d')}\"");
                     $previousVisitCountStatement->execute();
                     $previousVisitCountResults = $previousVisitCountStatement->fetchAll();
                     $previousVisitCount = empty($previousVisitCountResults[0]['visit_count']) ? 0 : intval($previousVisitCountResults[0]['visit_count']);
 
                     //echo("userId,{$userId},partnerId,{$partnerId},year,{$year},week,{$weekNumber},start,{$start->format('Y-m-d')},end,{$end->format('Y-m-d')},sum,{$transactionSumProgramAmount},signup,{$signupDateString},postalcode,{$postalCode},gender,{$gender}\n");
 
-                    echo("{$userId},{$signupDateString},{$postalCode},{$gender},{$language},{$birthday},{$partnerId},{$start->format('Y-m-d')},{$end->format('Y-m-d')},{$previousVisitCount},{$transactionSumProgramAmount}\n");
+                    //echo("{$userId},{$signupDateString},{$postalCode},{$gender},{$language},{$birthday},{$partnerId},{$start->format('Y-m-d')},{$end->format('Y-m-d')},{$previousVisitCount},{$transactionSumProgramAmount}\n");
+
+                    echo("{$start->format('Y')},{$start->format('n')},{$userId},{$signupDateTime->format('Y')},{$signupDateTime->format('n')},{$postalCode},{$gender},{$language},{$birthday},{$partnerId},{$previousVisitCount},{$transactionSumProgramAmount}\n");
                 }
             }
         }
