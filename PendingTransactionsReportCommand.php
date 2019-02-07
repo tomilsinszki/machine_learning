@@ -170,7 +170,22 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
                 $contactDetailsStatement = $connection->prepare("SELECT `title`, `postalcode`, `language`, `birthday` FROM Contact WHERE id={$lastContactId}");
                 $contactDetailsStatement->execute();
                 $contactDetailsResult = $contactDetailsStatement->fetchAll();
-                $postalCode = $contactDetailsResult[0]['postalcode'];
+
+                $rawPostalCode = $contactDetailsResult[0]['postalcode'];
+                $postalCodeDigits0 = null;
+                $postalCodeDigits1 = null;
+                $postalCodeDigits2 = null;
+                $postalCodeDigits3 = null;
+
+                if (is_numeric($rawPostalCode)) {
+                    if ( (999 < intval($rawPostalCode)) and (intval($rawPostalCode) < 9700)) {
+                        $postalCodeDigits0 = substr($rawPostalCode, 0, 1);
+                        $postalCodeDigits1 = substr($rawPostalCode, 1, 1);
+                        $postalCodeDigits2 = substr($rawPostalCode, 2, 1);
+                        $postalCodeDigits3 = substr($rawPostalCode, 3, 1);
+                    }
+                }
+
                 $gender = $contactDetailsResult[0]['title'];
                 $language = $contactDetailsResult[0]['language'];
                 $birthday = $contactDetailsResult[0]['birthday'];
@@ -223,11 +238,7 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
                     $previousVisitCountResults = $previousVisitCountStatement->fetchAll();
                     $previousVisitCount = empty($previousVisitCountResults[0]['visit_count']) ? 0 : intval($previousVisitCountResults[0]['visit_count']);
 
-                    //echo("userId,{$userId},partnerId,{$partnerId},year,{$year},week,{$weekNumber},start,{$start->format('Y-m-d')},end,{$end->format('Y-m-d')},sum,{$transactionSumProgramAmount},signup,{$signupDateString},postalcode,{$postalCode},gender,{$gender}\n");
-
-                    //echo("{$userId},{$signupDateString},{$postalCode},{$gender},{$language},{$birthday},{$partnerId},{$start->format('Y-m-d')},{$end->format('Y-m-d')},{$previousVisitCount},{$transactionSumProgramAmount}\n");
-
-                    echo("{$start->format('Y')},{$start->format('n')},{$userId},{$signupDateTime->format('Y')},{$signupDateTime->format('n')},{$postalCode},{$gender},{$language},{$birthday},{$partnerId},{$previousVisitCount},{$transactionSumProgramAmount}\n");
+                    echo("{$start->format('Y')},{$start->format('n')},{$userId},{$signupDateTime->format('Y')},{$signupDateTime->format('n')},{$postalCodeDigits0},{$postalCodeDigits1},{$postalCodeDigits2},{$postalCodeDigits3},{$gender},{$language},{$birthday},{$partnerId},{$previousVisitCount},{$transactionSumProgramAmount}\n");
                 }
             }
         }
