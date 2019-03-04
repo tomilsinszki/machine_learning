@@ -34,21 +34,90 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
      */
     private $userIds = array();
 
+    /**
+     * @var string
+     */
+    private $startYear = null;
+
+    /**
+     * @var string
+     */
+    private $startMonth = null;
+
+    /**
+     * @var string
+     */
+    private $startPreviousYear = null;
+
+    /**
+     * @var string
+     */
+    private $startPreviousMonth = null;
+
+    /**
+     * @var string
+     */
+    private $endYear = null;
+
+    /**
+     * @var string
+     */
+    private $endMonth = null;
+
     protected function configure() {
         $this->setName('rabattcorner:pending:transactions');
         $this->setDescription('Pending Transaction List');
+
+        $this->addArgument(
+            'startYear',
+            InputArgument::REQUIRED,
+            "Start Year"
+        );
+
+        $this->addArgument(
+            'startMonth',
+            InputArgument::REQUIRED,
+            "Start Month"
+        );
+
+        $this->addArgument(
+            'startPreviousYear',
+            InputArgument::REQUIRED,
+            "Start Previous Year"
+        );
+
+        $this->addArgument(
+            'startPreviousMonth',
+            InputArgument::REQUIRED,
+            "Start Previous Month"
+        );
+
+        $this->addArgument(
+            'endYear',
+            InputArgument::REQUIRED,
+            "End Year"
+        );
+
+        $this->addArgument(
+            'endMonth',
+            InputArgument::REQUIRED,
+            "End Month"
+        );
     }
 
     private function loadMonthlyPeriods() {
         $this->periods = array();
 
-        $now = new \DateTime();
+        $endDate = new \DateTime();
+        $endDate->setDate($this->endYear, $this->endMonth, 1);
+        $endDate->setTime(0, 0, 0);
+
         $currentDay = new \DateTime();
-        $currentDay->setDate(2017, 1, 1);
+        $currentDay->setDate($this->startYear, $this->startMonth, 1);
         $currentDay->setTime(0, 0, 0, 0);
 
-        $previousYear = 2016;
-        $previousMonth = 12;
+        $previousYear = $this->startPreviousYear;
+        $previousMonth = $this->startPreviousMonth;
 
         $shouldRun = true;
         while ($shouldRun) {
@@ -73,7 +142,7 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
             }
 
             $currentDay->modify('+1 day');
-            if ($now < $currentDay) {
+            if ($endDate < $currentDay) {
                 $shouldRun = false;
             }
         }
@@ -81,6 +150,8 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
         array_pop($this->periods);
     }
 
+    // TODO: review before enabling again
+    /*
     private function loadWeeklyPeriods() {
         $this->periods = array();
 
@@ -122,6 +193,7 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
 
         array_pop($this->periods);
     }
+    */
 
     /**
      * @throws DBALException
@@ -146,7 +218,16 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
      */
     protected function execute(InputInterface $input, OutputInterface $output) {
         $this->entityManager = $this->getContainer()->get('doctrine')->getManager();
-        
+
+        $this->startYear = $input->getArgument('startYear');
+        $this->startMonth = $input->getArgument('startMonth');
+
+        $this->startPreviousYear = $input->getArgument('startPreviousYear');
+        $this->startPreviousMonth = $input->getArgument('startPreviousMonth');
+
+        $this->endYear = $input->getArgument('endYear');
+        $this->endMonth = $input->getArgument('endMonth');
+
         $connection = $this->entityManager->getConnection();
         $connection->getConfiguration()->setSQLLogger(null);
 
