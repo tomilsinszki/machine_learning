@@ -64,6 +64,21 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
      */
     private $endMonth = null;
 
+    /**
+     * @var int
+     */
+    private $partnerBufferMonthCount = 0;
+
+    /**
+     * @var int
+     */
+    private $userBufferMonthCount = 0;
+
+    /**
+     * @var int
+     */
+    private $userMinimumAcceptedTransactionAmount = 0;
+
     protected function configure() {
         $this->setName('rabattcorner:pending:transactions');
         $this->setDescription('Pending Transaction List');
@@ -71,37 +86,55 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
         $this->addArgument(
             'startYear',
             InputArgument::REQUIRED,
-            "Start Year"
+            "The year of the first period to generate data for"
         );
 
         $this->addArgument(
             'startMonth',
             InputArgument::REQUIRED,
-            "Start Month"
+            "The month of the first period to generate data for"
         );
 
         $this->addArgument(
             'startPreviousYear',
             InputArgument::REQUIRED,
-            "Start Previous Year"
+            "The year of the period that would be before the first period"
         );
 
         $this->addArgument(
             'startPreviousMonth',
             InputArgument::REQUIRED,
-            "Start Previous Month"
+            "The month of the period that would be before the first period"
         );
 
         $this->addArgument(
             'endYear',
             InputArgument::REQUIRED,
-            "End Year"
+            "The year of the last period to generate data for"
         );
 
         $this->addArgument(
             'endMonth',
             InputArgument::REQUIRED,
-            "End Month"
+            "The month of the last period to generate data for"
+        );
+
+        $this->addArgument(
+            'partnerBufferMonthCount',
+            InputArgument::REQUIRED,
+            "The number of months the partner should have existed already (before the first day of the current month)"
+        );
+
+        $this->addArgument(
+            'userBufferMonthCount',
+            InputArgument::REQUIRED,
+            "User should have accepted transactions this many months ago"
+        );
+
+        $this->addArgument(
+            'userMinimumAcceptedTransactionAmount',
+            InputArgument::REQUIRED,
+            "Filter out users who's sum accepted transaction amount is less than this amount"
         );
     }
 
@@ -200,8 +233,8 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
      */
     private function loadUserIds() {
         $this->userIds = array();
-
-        $statement = $this->entityManager->getConnection()->prepare("SELECT id FROM account_user WHERE account_user.id AND account_user.locked = 0 AND account_user.enabled=1 ORDER BY id");
+        
+        $statement = $this->entityManager->getConnection()->prepare("SELECT u.id, SUM(programAmount) sum_program_amount FROM account_user u LEFT JOIN cashback_transaction t ON u.id=t.user_id WHERE u.locked=0 AND u.enabled=1 AND t.`time`<DATE_FORMAT(CURDATE(), '%Y-%m-01') - INTERVAL {$this->userBufferMonthCount} MONTH AND t.status='accepted' GROUP BY u.id HAVING {$this->userMinimumAcceptedTransactionAmount}<sum_program_amount ORDER BY u.id ASC");
         $statement->execute();
         $userIdResults = $statement->fetchAll();
 
@@ -227,6 +260,10 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
 
         $this->endYear = $input->getArgument('endYear');
         $this->endMonth = $input->getArgument('endMonth');
+
+        $this->partnerBufferMonthCount = $input->getArgument('partnerBufferMonthCount');
+        $this->userBufferMonthCount = $input->getArgument('userBufferMonthCount');
+        $this->userMinimumAcceptedTransactionAmount = $input->getArgument('userMinimumAcceptedTransactionAmount');
 
         $connection = $this->entityManager->getConnection();
         $connection->getConfiguration()->setSQLLogger(null);
@@ -286,7 +323,7 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
                     $language = '2';
                 }
 
-                $partnersStatement = $connection->prepare("SELECT id FROM Partner WHERE status='active'");
+                $partnersStatement = $connection->prepare("SELECT p.id, SUM(t.programAmount) sum_program_amount FROM Partner p LEFT JOIN cashback_transaction t ON p.id=t.partner_id WHERE t.`time`<DATE_FORMAT(CURDATE(), '%Y-%m-01') - INTERVAL {$this->partnerBufferMonthCount} MONTH AND t.`status`='accepted' AND p.`status`='active' GROUP BY p.id HAVING 0<sum_program_amount");
                 $partnersStatement->execute();
                 $partnerIdResults = $partnersStatement->fetchAll();
 
