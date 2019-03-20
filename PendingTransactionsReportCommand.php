@@ -233,7 +233,7 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
      */
     private function loadUserIds() {
         $this->userIds = array();
-        
+
         $statement = $this->entityManager->getConnection()->prepare("SELECT u.id, SUM(programAmount) sum_program_amount FROM account_user u LEFT JOIN cashback_transaction t ON u.id=t.user_id WHERE u.locked=0 AND u.enabled=1 AND t.`time`<DATE_FORMAT(CURDATE(), '%Y-%m-01') - INTERVAL {$this->userBufferMonthCount} MONTH AND t.status='accepted' GROUP BY u.id HAVING {$this->userMinimumAcceptedTransactionAmount}<sum_program_amount ORDER BY u.id ASC");
         $statement->execute();
         $userIdResults = $statement->fetchAll();
@@ -339,9 +339,11 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
 
                     $signupDateTime = new \DateTime("{$signupDateString} 00:00:00");
 
+                    /*
                     if ($end->getTimestamp() <= $signupDateTime->getTimestamp()) {
                         continue;
                     }
+                    */
 
                     $partnerId = intval($partnerIdResult['id']);
 
