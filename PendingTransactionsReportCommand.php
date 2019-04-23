@@ -352,6 +352,9 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
                     $transactionProgramAmountResults = $transactionStatement->fetchAll();
                     $transactionSumProgramAmount = empty($transactionProgramAmountResults[0]['program_amount']) ? 0.0 : $transactionProgramAmountResults[0]['program_amount'];
                     $transactionSumProgramAmount = number_format($transactionSumProgramAmount, '2', '.', '');
+                    if ($transactionSumProgramAmount === '0.00') {
+                        $transactionSumProgramAmount = '0.001';
+                    }
 
                     $previousVisitCountStatement = $connection->prepare("SELECT COUNT(DISTINCT id) AS visit_count FROM PartnerVisit WHERE user_id={$userId} AND partner_id={$partnerId} AND time<\"{$start->format('Y-m-d')}\"");
                     $previousVisitCountStatement->execute();
