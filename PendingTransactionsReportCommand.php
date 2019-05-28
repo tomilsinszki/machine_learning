@@ -16,6 +16,8 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Doctrine\DBAL\DBALException;
+use Symfony\Component\Validator\Constraints\DateTime;
+use Doctrine\DBAL\Connection;
 
 class PendingTransactionsReportCommand extends ContainerAwareCommand
 {
@@ -323,7 +325,7 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
                     $language = '2';
                 }
 
-                $partnersStatement = $connection->prepare("SELECT p.id, SUM(t.programAmount) sum_program_amount FROM Partner p LEFT JOIN cashback_transaction t ON p.id=t.partner_id WHERE t.`time`<DATE_FORMAT(CURDATE(), '%Y-%m-01') - INTERVAL {$this->partnerBufferMonthCount} MONTH AND t.`status`='accepted' AND p.`status`='active' GROUP BY p.id HAVING 0<sum_program_amount");
+                $partnersStatement = $connection->prepare("SELECT p.id, p.main_category_id as main_category_id, SUM(t.programAmount) sum_program_amount FROM Partner p LEFT JOIN cashback_transaction t ON p.id=t.partner_id WHERE t.`time`<DATE_FORMAT(CURDATE(), '%Y-%m-01') - INTERVAL {$this->partnerBufferMonthCount} MONTH AND t.`status`='accepted' AND p.`status`='active' GROUP BY p.id HAVING 0<sum_program_amount");
                 $partnersStatement->execute();
                 $partnerIdResults = $partnersStatement->fetchAll();
 
@@ -337,6 +339,8 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
                     $startString = "{$start->format('Y-m-d H:i:s')}";
                     $endString = "{$end->format('Y-m-d H:i:s')}";
 
+                    $mainCategoryId = intval($partnerIdResult['main_category_id']);
+
                     $signupDateTime = new \DateTime("{$signupDateString} 00:00:00");
 
                     /*
@@ -347,6 +351,47 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
 
                     $partnerId = intval($partnerIdResult['id']);
 
+                    $tmpStart = clone $start;
+                    $tmpStart->modify('-1 month');
+                    $tmpEnd = clone $start;
+                    $visitCount0 = $this->getVisitCount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
+                    $categoryVisitCount0 = $this->getVisitCountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
+                    $transactionSumProgramAmount0 = $this->getSumProgramAmount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
+                    $categorySumProgramAmount0 = $this->getSumProgramAmountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
+
+                    $tmpStart = clone $start;
+                    $tmpStart->modify('-2 month');
+                    $tmpEnd = clone $start;
+                    $tmpEnd->modify('-1 month');
+                    $visitCount1 = $this->getVisitCount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
+                    $categoryVisitCount1 = $this->getVisitCountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
+                    $transactionSumProgramAmount1 = $this->getSumProgramAmount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
+                    $categorySumProgramAmount1 = $this->getSumProgramAmountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
+
+                    $tmpStart = clone $start;
+                    $tmpStart->modify('-3 month');
+                    $tmpEnd = clone $start;
+                    $tmpEnd->modify('-2 month');
+                    $visitCount2 = $this->getVisitCount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
+                    $categoryVisitCount2 = $this->getVisitCountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
+                    $transactionSumProgramAmount2 = $this->getSumProgramAmount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
+                    $categorySumProgramAmount2 = $this->getSumProgramAmountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
+
+                    $tmpStart = clone $start;
+                    $tmpStart->modify('-12 month');
+                    $tmpEnd = clone $start;
+                    $tmpEnd->modify('-11 month');
+                    $visitCount3 = $this->getVisitCount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
+                    $categoryVisitCount3 = $this->getVisitCountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
+                    $transactionSumProgramAmount3 = $this->getSumProgramAmount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
+                    $categorySumProgramAmount3 = $this->getSumProgramAmountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
+
+                    $tmpEnd = clone $start;
+                    $visitCount4 = $this->getVisitCount($connection, $partnerId, $userId, null, $tmpEnd);
+                    $categoryVisitCount4 = $this->getVisitCountForMainCategory($connection, $mainCategoryId, $userId, null, $tmpEnd);
+                    $transactionSumProgramAmount4 = $this->getSumProgramAmount($connection, $partnerId, $userId, null, $tmpEnd);
+                    $categorySumProgramAmount4 = $this->getSumProgramAmountForMainCategory($connection, $mainCategoryId, $userId, null, $tmpEnd);
+
                     $transactionStatement = $connection->prepare("SELECT SUM(programAmount) AS program_amount FROM cashback_transaction WHERE partner_id={$partnerId} AND user_id={$userId} AND '{$startString}'<=time AND time<='{$endString}'");
                     $transactionStatement->execute();
                     $transactionProgramAmountResults = $transactionStatement->fetchAll();
@@ -356,14 +401,163 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
                         $transactionSumProgramAmount = '0.001';
                     }
 
-                    $previousVisitCountStatement = $connection->prepare("SELECT COUNT(DISTINCT id) AS visit_count FROM PartnerVisit WHERE user_id={$userId} AND partner_id={$partnerId} AND time<\"{$start->format('Y-m-d')}\"");
-                    $previousVisitCountStatement->execute();
-                    $previousVisitCountResults = $previousVisitCountStatement->fetchAll();
-                    $previousVisitCount = empty($previousVisitCountResults[0]['visit_count']) ? 0 : intval($previousVisitCountResults[0]['visit_count']);
+                    $output = "";
+                    $output .= "{$start->format('Y')}";
+                    $output .= ",";
+                    $output .= "{$start->format('n')}";
+                    $output .= ",";
+                    $output .= "{$userId}";
+                    $output .= ",";
+                    $output .= "{$signupDateTime->format('Y')}";
+                    $output .= ",";
+                    $output .= "{$signupDateTime->format('n')}";
+                    $output .= ",";
+                    $output .= "{$postalCodeDigits0}";
+                    $output .= ",";
+                    $output .= "{$postalCodeDigits1}";
+                    $output .= ",";
+                    $output .= "{$postalCodeDigits2}";
+                    $output .= ",";
+                    $output .= "{$postalCodeDigits3}";
+                    $output .= ",";
+                    $output .= "{$gender}";
+                    $output .= ",";
+                    $output .= "{$language}";
+                    $output .= ",";
+                    $output .= "{$birthday}";
+                    $output .= ",";
+                    $output .= "{$partnerId}";
+                    $output .= ",";
+                    $output .= "{$categoryVisitCount0}";
+                    $output .= ",";
+                    $output .= "{$categoryVisitCount1}";
+                    $output .= ",";
+                    $output .= "{$categoryVisitCount2}";
+                    $output .= ",";
+                    $output .= "{$categoryVisitCount3}";
+                    $output .= ",";
+                    $output .= "{$categoryVisitCount4}";
+                    $output .= ",";
+                    $output .= "{$categorySumProgramAmount0}";
+                    $output .= ",";
+                    $output .= "{$categorySumProgramAmount1}";
+                    $output .= ",";
+                    $output .= "{$categorySumProgramAmount2}";
+                    $output .= ",";
+                    $output .= "{$categorySumProgramAmount3}";
+                    $output .= ",";
+                    $output .= "{$categorySumProgramAmount4}";
+                    $output .= ",";
+                    $output .= "{$visitCount0}";
+                    $output .= ",";
+                    $output .= "{$visitCount1}";
+                    $output .= ",";
+                    $output .= "{$visitCount2}";
+                    $output .= ",";
+                    $output .= "{$visitCount3}";
+                    $output .= ",";
+                    $output .= "{$visitCount4}";
+                    $output .= ",";
+                    $output .= "{$transactionSumProgramAmount0}";
+                    $output .= ",";
+                    $output .= "{$transactionSumProgramAmount1}";
+                    $output .= ",";
+                    $output .= "{$transactionSumProgramAmount2}";
+                    $output .= ",";
+                    $output .= "{$transactionSumProgramAmount3}";
+                    $output .= ",";
+                    $output .= "{$transactionSumProgramAmount4}";
+                    $output .= ",";
+                    $output .= "{$transactionSumProgramAmount}";
+                    $output .= "\n";
 
-                    echo("{$start->format('Y')},{$start->format('n')},{$userId},{$signupDateTime->format('Y')},{$signupDateTime->format('n')},{$postalCodeDigits0},{$postalCodeDigits1},{$postalCodeDigits2},{$postalCodeDigits3},{$gender},{$language},{$birthday},{$partnerId},{$previousVisitCount},{$transactionSumProgramAmount}\n");
+                    echo($output);
                 }
             }
         }
+    }
+
+    private function getSumProgramAmountForMainCategory(Connection $connection, $mainCategoryId, $userId, $start, $end) {
+        $queryText = "SELECT SUM(programAmount) AS program_amount FROM cashback_transaction LEFT JOIN Partner ON cashback_transaction.partner_id=Partner.id WHERE Partner.main_category_id={$mainCategoryId} AND user_id={$userId}";
+
+        if ($start instanceof \DateTime) {
+            $queryText .= " AND '{$start->format('Y-m-d')}'<=time";
+        }
+
+        if ($end instanceof \DateTime) {
+            $queryText .= " AND time<'{$end->format('Y-m-d')}'";
+        }
+
+        $statement = $connection->prepare($queryText);
+        $statement->execute();
+        $results = $statement->fetchAll();
+        $amount = empty($results[0]['program_amount']) ? 0.0 : $results[0]['program_amount'];
+        $amount = number_format($amount, '2', '.', '');
+        if ($amount === '0.00') {
+            $amount = '0.001';
+        }
+
+        return $amount;
+    }
+
+    private function getSumProgramAmount(Connection $connection, $partnerId, $userId, $start, $end) {
+        $queryText = "SELECT SUM(programAmount) AS program_amount FROM cashback_transaction WHERE partner_id={$partnerId} AND user_id={$userId}";
+
+        if ($start instanceof \DateTime) {
+            $queryText .= " AND '{$start->format('Y-m-d')}'<=time";
+        }
+
+        if ($end instanceof \DateTime) {
+            $queryText .= " AND time<'{$end->format('Y-m-d')}'";
+        }
+
+        $statement = $connection->prepare($queryText);
+        $statement->execute();
+        $results = $statement->fetchAll();
+        $amount = empty($results[0]['program_amount']) ? 0.0 : $results[0]['program_amount'];
+        $amount = number_format($amount, '2', '.', '');
+        if ($amount === '0.00') {
+            $amount = '0.001';
+        }
+
+        return $amount;
+    }
+
+    private function getVisitCountForMainCategory(Connection $connection, $mainCategoryId, $userId, $start, $end) {
+        $queryText = "SELECT COUNT(DISTINCT PartnerVisit.id) AS visit_count FROM PartnerVisit LEFT JOIN Partner ON PartnerVisit.partner_id=Partner.id WHERE user_id={$userId}";
+
+        if ($start instanceof \DateTime) {
+            $queryText .= " AND '{$start->format('Y-m-d')}'<=time";
+        }
+
+        if ($end instanceof \DateTime) {
+            $queryText .= " AND time<'{$end->format('Y-m-d')}'";
+        }
+
+        $statement = $connection->prepare($queryText);
+        $statement->execute();
+        $results = $statement->fetchAll();
+        $visitCount = empty($results[0]['visit_count']) ? 0 : intval($results[0]['visit_count']);
+
+        return $visitCount;
+    }
+
+    private function getVisitCount(Connection $connection, $partnerId, $userId, $start, $end) {
+        $queryText = "SELECT COUNT(DISTINCT id) AS visit_count FROM PartnerVisit WHERE user_id={$userId} AND partner_id={$partnerId}";
+
+        if ($start instanceof \DateTime) {
+            $queryText .= " AND '{$start->format('Y-m-d')}'<=time";
+        }
+
+        if ($end instanceof \DateTime) {
+            $queryText .= " AND time<'{$end->format('Y-m-d')}'";
+        }
+
+        $statement = $connection->prepare($queryText);
+        $statement->execute();
+        $results = $statement->fetchAll();
+        $visitCount = empty($results[0]['visit_count']) ? 0 : intval($results[0]['visit_count']);
+
+        return $visitCount;
     }
 }
