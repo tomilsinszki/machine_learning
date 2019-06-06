@@ -10,7 +10,6 @@ ini_set('display_errors',1);
 error_reporting(E_ALL|E_STRICT);
 
 use Doctrine\ORM\EntityManager;
-use RabattCorner\AccountBundle\Entity\UserRepository;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -354,11 +353,6 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
                         $mainCategoryId = intval($partnerIdResult['category_id']);
                     }
 
-                    $subCategoryId = 0;
-                    if ( (0 < intval($partnerIdResult['parent_category_id'])) and (0 < intval($partnerIdResult['category_id'])) ) {
-                        $subCategoryId = intval($partnerIdResult['category_id']);
-                    }
-
                     $signupDateTime = new \DateTime("{$signupDateString} 00:00:00");
 
                     $signupTimestamp = strtotime($signupDateTime->format('Y-m-d H:i:s'));
@@ -380,15 +374,15 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
 
                     $partnerId = intval($partnerIdResult['id']);
 
+                    $countRecommendedPartnerIds = count($this->getRecommendedPartnerIds($connection, $partnerId));
+
                     $tmpStart = clone $start;
                     $tmpStart->modify('-1 month');
                     $tmpEnd = clone $start;
                     $visitCount0 = $this->getVisitCount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
                     $categoryVisitCount0 = $this->getVisitCountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
-                    //$subCategoryVisitCount0 = $this->getVisitCountForSubCategories($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
                     $transactionSumProgramAmount0 = $this->getSumProgramAmount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
                     $categorySumProgramAmount0 = $this->getSumProgramAmountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
-                    //$subCategorySumProgramAmount0 = $this->getSumProgramAmountForSubCategories($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
                     $countPartnerSpent0 = $this->getNumberOfPartnersSpent($connection, $userId, $tmpStart, $tmpEnd);
                     $countPartnerVisited0 = $this->getNumberOfPartnersVisited($connection, $userId, $tmpStart, $tmpEnd);
                     $transactionSumProgramAmountForRecommendedPartners0 = $this->getSumProgramAmountForRecommendedPartners($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
@@ -400,10 +394,8 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
                     $tmpEnd->modify('-1 month');
                     $visitCount1 = $this->getVisitCount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
                     $categoryVisitCount1 = $this->getVisitCountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
-                    //$subCategoryVisitCount1 = $this->getVisitCountForSubCategories($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
                     $transactionSumProgramAmount1 = $this->getSumProgramAmount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
                     $categorySumProgramAmount1 = $this->getSumProgramAmountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
-                    //$subCategorySumProgramAmount1 = $this->getSumProgramAmountForSubCategories($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
                     $countPartnerSpent1 = $this->getNumberOfPartnersSpent($connection, $userId, $tmpStart, $tmpEnd);
                     $countPartnerVisited1 = $this->getNumberOfPartnersVisited($connection, $userId, $tmpStart, $tmpEnd);
                     $transactionSumProgramAmountForRecommendedPartners1 = $this->getSumProgramAmountForRecommendedPartners($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
@@ -415,10 +407,8 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
                     $tmpEnd->modify('-2 month');
                     $visitCount2 = $this->getVisitCount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
                     $categoryVisitCount2 = $this->getVisitCountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
-                    //$subCategoryVisitCount2 = $this->getVisitCountForSubCategories($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
                     $transactionSumProgramAmount2 = $this->getSumProgramAmount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
                     $categorySumProgramAmount2 = $this->getSumProgramAmountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
-                    //$subCategorySumProgramAmount2 = $this->getSumProgramAmountForSubCategories($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
                     $countPartnerSpent2 = $this->getNumberOfPartnersSpent($connection, $userId, $tmpStart, $tmpEnd);
                     $countPartnerVisited2 = $this->getNumberOfPartnersVisited($connection, $userId, $tmpStart, $tmpEnd);
                     $transactionSumProgramAmountForRecommendedPartners2 = $this->getSumProgramAmountForRecommendedPartners($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
@@ -430,10 +420,8 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
                     $tmpEnd->modify('-11 month');
                     $visitCount3 = $this->getVisitCount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
                     $categoryVisitCount3 = $this->getVisitCountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
-                    //$subCategoryVisitCount3 = $this->getVisitCountForSubCategories($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
                     $transactionSumProgramAmount3 = $this->getSumProgramAmount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
                     $categorySumProgramAmount3 = $this->getSumProgramAmountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
-                    //$subCategorySumProgramAmount3 = $this->getSumProgramAmountForSubCategories($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
                     $countPartnerSpent3 = $this->getNumberOfPartnersSpent($connection, $userId, $tmpStart, $tmpEnd);
                     $countPartnerVisited3 = $this->getNumberOfPartnersVisited($connection, $userId, $tmpStart, $tmpEnd);
                     $transactionSumProgramAmountForRecommendedPartners3 = $this->getSumProgramAmountForRecommendedPartners($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
@@ -442,10 +430,8 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
                     $tmpEnd = clone $start;
                     $visitCount4 = $this->getVisitCount($connection, $partnerId, $userId, null, $tmpEnd);
                     $categoryVisitCount4 = $this->getVisitCountForMainCategory($connection, $mainCategoryId, $userId, null, $tmpEnd);
-                    //$subCategoryVisitCount4 = $this->getVisitCountForSubCategories($connection, $partnerId, $userId, null, $tmpEnd);
                     $transactionSumProgramAmount4 = $this->getSumProgramAmount($connection, $partnerId, $userId, null, $tmpEnd);
                     $categorySumProgramAmount4 = $this->getSumProgramAmountForMainCategory($connection, $mainCategoryId, $userId, null, $tmpEnd);
-                    //$subCategorySumProgramAmount4 = $this->getSumProgramAmountForSubCategories($connection, $partnerId, $userId, null, $tmpEnd);
                     $countPartnerSpent4 = $this->getNumberOfPartnersSpent($connection, $userId, null, $tmpEnd);
                     $countPartnerVisited4 = $this->getNumberOfPartnersVisited($connection, $userId, null, $tmpEnd);
                     $transactionSumProgramAmountForRecommendedPartners4 = $this->getSumProgramAmountForRecommendedPartners($connection, $partnerId, $userId, null, $tmpEnd);
@@ -455,10 +441,14 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
                     $transactionStatement->execute();
                     $transactionProgramAmountResults = $transactionStatement->fetchAll();
                     $transactionSumProgramAmount = empty($transactionProgramAmountResults[0]['program_amount']) ? 0.0 : $transactionProgramAmountResults[0]['program_amount'];
-                    $transactionSumProgramAmount = number_format($transactionSumProgramAmount, '2', '.', '');
+                    $transactionSumProgramAmount = floatval($transactionSumProgramAmount);
+                    $transactionSumProgramAmount = $this->calculateTarget($transactionSumProgramAmount);
+                    //$transactionSumProgramAmount = number_format($transactionSumProgramAmount, '2', '.', '');
+                    /*
                     if ($transactionSumProgramAmount === '0.00') {
                         $transactionSumProgramAmount = '0.001';
                     }
+                    */
 
                     $output = "";
 
@@ -466,13 +456,10 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
                     $output .= ",";
                     $output .= "{$start->format('n')}";
                     $output .= ",";
-
                     $output .= "{$userId}";
                     $output .= ",";
                     $output .= "{$monthsSinceSignup}";
                     $output .= ",";
-
-                    /*
                     $output .= "{$postalCodeDigits0}";
                     $output .= ",";
                     $output .= "{$postalCodeDigits1}";
@@ -487,15 +474,12 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
                     $output .= ",";
                     $output .= "{$age}";
                     $output .= ",";
-                    */
-
                     $output .= "{$partnerId}";
                     $output .= ",";
                     $output .= "{$mainCategoryId}";
                     $output .= ",";
-                    $output .= "{$subCategoryId}";
+                    $output .= "{$countRecommendedPartnerIds}";
                     $output .= ",";
-
                     $output .= "{$visitCountForRecommendedPartners0}";
                     $output .= ",";
                     $output .= "{$visitCountForRecommendedPartners1}";
@@ -556,29 +540,6 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
                     $output .= ",";
                     $output .= "{$categorySumProgramAmount4}";
                     $output .= ",";
-                    // TODO: for some partners there is no subcategory
-                    /*
-                    $output .= "{$subCategoryVisitCount0}";
-                    $output .= ",";
-                    $output .= "{$subCategoryVisitCount1}";
-                    $output .= ",";
-                    $output .= "{$subCategoryVisitCount2}";
-                    $output .= ",";
-                    $output .= "{$subCategoryVisitCount3}";
-                    $output .= ",";
-                    $output .= "{$subCategoryVisitCount4}";
-                    $output .= ",";
-                    $output .= "{$subCategorySumProgramAmount0}";
-                    $output .= ",";
-                    $output .= "{$subCategorySumProgramAmount1}";
-                    $output .= ",";
-                    $output .= "{$subCategorySumProgramAmount2}";
-                    $output .= ",";
-                    $output .= "{$subCategorySumProgramAmount3}";
-                    $output .= ",";
-                    $output .= "{$subCategorySumProgramAmount4}";
-                    $output .= ",";
-                    */
                     $output .= "{$visitCount0}";
                     $output .= ",";
                     $output .= "{$visitCount1}";
@@ -608,6 +569,14 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
         }
     }
 
+    /**
+     * @param Connection $connection
+     * @param $userId
+     * @param $start
+     * @param $end
+     * @return int
+     * @throws DBALException
+     */
     private function getNumberOfPartnersVisited(Connection $connection, $userId, $start, $end) {
         $queryText = "SELECT COUNT(DISTINCT partner_id) AS visit_count FROM PartnerVisit WHERE user_id={$userId}";
 
@@ -626,8 +595,22 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
         return $count;
     }
 
+    private function getNumberOfPartnersSpentInMainCategory(Connection $connection, $mainCategoryId, $userId, $start, $end) {
+        $queryText = "SELECT COUNT(DISTINCT partner_id) AS partner_count FROM cashback_transaction WHERE user_id={$userId}";
+
+        // TODO: implement
+    }
+
+    /**
+     * @param Connection $connection
+     * @param $userId
+     * @param $start
+     * @param $end
+     * @return int
+     * @throws DBALException
+     */
     private function getNumberOfPartnersSpent(Connection $connection, $userId, $start, $end) {
-        $queryText = "SELECT COUNT(DISTINCT partner_id) AS transaction_count FROM cashback_transaction WHERE user_id={$userId} AND status!='denied'";
+        $queryText = "SELECT COUNT(DISTINCT partner_id) AS partner_count FROM cashback_transaction WHERE user_id={$userId}";
 
         if ($start instanceof \DateTime) {
             $queryText .= " AND '{$start->format('Y-m-d')}'<=time";
@@ -640,7 +623,7 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
         $statement = $connection->prepare($queryText);
         $statement->execute();
         $results = $statement->fetchAll();
-        $count = empty($results[0]['transaction_count']) ? 0 : $results[0]['transaction_count'];
+        $count = empty($results[0]['partner_count']) ? 0 : $results[0]['partner_count'];
         return $count;
     }
 
@@ -664,15 +647,30 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
             $recommendedPartnerIds[] = $recommendedPartnerId;
         }
 
+        $recommendedPartnerIds = array_unique($recommendedPartnerIds);
+
         return $recommendedPartnerIds;
     }
 
+    /**
+     * @param Connection $connection
+     * @param $partnerId
+     * @param $userId
+     * @param $start
+     * @param $end
+     * @return float|string
+     * @throws DBALException
+     */
     private function getSumProgramAmountForRecommendedPartners(Connection $connection, $partnerId, $userId, $start, $end) {
         $recommendedPartnerIds = $this->getRecommendedPartnerIds($connection, $partnerId);
         $recommendedPartnerIdsList = implode(',', $recommendedPartnerIds);
 
         if (empty($recommendedPartnerIdsList)) {
+            /*
             return 0.001;
+            */
+            //return '0.00';
+            return 0;
         }
 
         $queryText = "SELECT SUM(programAmount) AS program_amount FROM cashback_transaction WHERE partner_id IN ({$recommendedPartnerIdsList}) AND user_id={$userId}";
@@ -689,14 +687,25 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
         $statement->execute();
         $results = $statement->fetchAll();
         $amount = empty($results[0]['program_amount']) ? 0.0 : $results[0]['program_amount'];
-        $amount = number_format($amount, '2', '.', '');
+        //$amount = number_format($amount, '2', '.', '');
+        /*
         if ($amount === '0.00') {
             $amount = '0.001';
         }
+        */
 
         return $amount;
     }
 
+    /**
+     * @param Connection $connection
+     * @param $partnerId
+     * @param $userId
+     * @param $start
+     * @param $end
+     * @return int
+     * @throws DBALException
+     */
     private function getVisitCountForRecommendedPartners(Connection $connection, $partnerId, $userId, $start, $end) {
         $recommendedPartnerIds = $this->getRecommendedPartnerIds($connection, $partnerId);
         $recommendedPartnerIdsList = implode(',', $recommendedPartnerIds);
@@ -723,29 +732,39 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
         return $visitCount;
     }
 
-    /**
-     * @param Connection $connection
-     * @param $partnerId
-     * @return array
-     * @throws DBALException
-     */
+    /*
     private function getSubCategoryIds(Connection $connection, $partnerId) {
-        $queryText = "SELECT category_id FROM partner_category WHERE partner_id={$partnerId}";
+        $queryText = "SELECT main_category_id FROM Partner p LEFT JOIN Category c ON p.main_category_id=c.id WHERE p.id={$partnerId} AND c.parent_id IS NOT NULL";
+
+        $subCategoryIds = array();
 
         $statement = $connection->prepare($queryText);
         $statement->execute();
         $results = $statement->fetchAll();
+        $subCategoryId = empty($results[0]['main_category_id']) ? 0 : $results[0]['main_category_id'];
 
-        $subCategoryIds = array();
+        if (!empty($subCategoryId)) {
+            $subCategoryIds[] = $subCategoryId;
+        }
+
+        $queryText = "SELECT category_id FROM partner_category pc LEFT JOIN Category c ON pc.category_id=c.id WHERE pc.partner_id={$partnerId} AND c.parent_id IS NOT NULL";
+
+        $statement = $connection->prepare($queryText);
+        $statement->execute();
+        $results = $statement->fetchAll();
 
         foreach ($results as $result) {
             $subCategoryId = $result['category_id'];
             $subCategoryIds[] = $subCategoryId;
         }
 
+        $subCategoryIds = array_unique($subCategoryIds);
+
         return $subCategoryIds;
     }
+    */
 
+    /*
     private function getSumProgramAmountForSubCategories(Connection $connection, $partnerId, $userId, $start, $end) {
         $subCategoryIds = $this->getSubCategoryIds($connection, $partnerId);
         $subCategoryIdsList = implode(',', $subCategoryIds);
@@ -775,9 +794,20 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
 
         return $amount;
     }
+    */
 
+    /**
+     * @param Connection $connection
+     * @param $mainCategoryId
+     * @param $userId
+     * @param $start
+     * @param $end
+     * @return float|string
+     * @throws DBALException
+     */
     private function getSumProgramAmountForMainCategory(Connection $connection, $mainCategoryId, $userId, $start, $end) {
-        $queryText = "SELECT SUM(programAmount) AS program_amount FROM cashback_transaction LEFT JOIN Partner ON cashback_transaction.partner_id=Partner.id WHERE Partner.main_category_id={$mainCategoryId} AND user_id={$userId}";
+        //$queryText = "SELECT SUM(programAmount) AS program_amount FROM cashback_transaction LEFT JOIN Partner ON cashback_transaction.partner_id=Partner.id WHERE Partner.main_category_id={$mainCategoryId} AND user_id={$userId}";
+        $queryText = "SELECT SUM(t.programAmount) AS program_amount FROM cashback_transaction t LEFT JOIN Partner p ON t.partner_id=p.id LEFT JOIN Category c ON p.main_category_id=c.id LEFT JOIN Category cp ON c.parent_id=cp.id WHERE p.status='active' AND ((c.id = {$mainCategoryId}) OR (cp.id = {$mainCategoryId})) AND t.user_id={$userId}";
 
         if ($start instanceof \DateTime) {
             $queryText .= " AND '{$start->format('Y-m-d')}'<=time";
@@ -791,14 +821,25 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
         $statement->execute();
         $results = $statement->fetchAll();
         $amount = empty($results[0]['program_amount']) ? 0.0 : $results[0]['program_amount'];
-        $amount = number_format($amount, '2', '.', '');
+        //$amount = number_format($amount, '2', '.', '');
+        /*
         if ($amount === '0.00') {
             $amount = '0.001';
         }
+        */
 
         return $amount;
     }
 
+    /**
+     * @param Connection $connection
+     * @param $partnerId
+     * @param $userId
+     * @param $start
+     * @param $end
+     * @return float|string
+     * @throws DBALException
+     */
     private function getSumProgramAmount(Connection $connection, $partnerId, $userId, $start, $end) {
         $queryText = "SELECT SUM(programAmount) AS program_amount FROM cashback_transaction WHERE partner_id={$partnerId} AND user_id={$userId}";
 
@@ -814,14 +855,17 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
         $statement->execute();
         $results = $statement->fetchAll();
         $amount = empty($results[0]['program_amount']) ? 0.0 : $results[0]['program_amount'];
-        $amount = number_format($amount, '2', '.', '');
+        //$amount = number_format($amount, '2', '.', '');
+        /*
         if ($amount === '0.00') {
             $amount = '0.001';
         }
+        */
 
         return $amount;
     }
 
+    /*
     private function getVisitCountForSubCategories(Connection $connection, $partnerId, $userId, $start, $end) {
         $subCategoryIds = $this->getSubCategoryIds($connection, $partnerId);
         $subCategoryIdsList = implode(',', $subCategoryIds);
@@ -847,9 +891,20 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
 
         return $visitCount;
     }
+    */
 
+    /**
+     * @param Connection $connection
+     * @param $mainCategoryId
+     * @param $userId
+     * @param $start
+     * @param $end
+     * @return int
+     * @throws DBALException
+     */
     private function getVisitCountForMainCategory(Connection $connection, $mainCategoryId, $userId, $start, $end) {
-        $queryText = "SELECT COUNT(DISTINCT PartnerVisit.id) AS visit_count FROM PartnerVisit LEFT JOIN Partner ON PartnerVisit.partner_id=Partner.id WHERE Partner.main_category_id={$mainCategoryId} AND user_id={$userId}";
+        // $queryText = "SELECT COUNT(DISTINCT PartnerVisit.id) AS visit_count FROM PartnerVisit LEFT JOIN Partner ON PartnerVisit.partner_id=Partner.id WHERE Partner.main_category_id={$mainCategoryId} AND user_id={$userId}";
+        $queryText = "SELECT COUNT(DISTINCT pv.id) AS visit_count FROM PartnerVisit pv LEFT JOIN Partner p ON pv.partner_id=p.id LEFT JOIN Category c ON p.main_category_id=c.id LEFT JOIN Category cp ON c.parent_id=cp.id WHERE p.status='active' AND ((c.id = {$mainCategoryId}) OR (cp.id = {$mainCategoryId})) AND pv.user_id={$userId}";
 
         if ($start instanceof \DateTime) {
             $queryText .= " AND '{$start->format('Y-m-d')}'<=time";
@@ -867,6 +922,15 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
         return $visitCount;
     }
 
+    /**
+     * @param Connection $connection
+     * @param $partnerId
+     * @param $userId
+     * @param $start
+     * @param $end
+     * @return int
+     * @throws DBALException
+     */
     private function getVisitCount(Connection $connection, $partnerId, $userId, $start, $end) {
         $queryText = "SELECT COUNT(DISTINCT id) AS visit_count FROM PartnerVisit WHERE user_id={$userId} AND partner_id={$partnerId}";
 
@@ -884,5 +948,16 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
         $visitCount = empty($results[0]['visit_count']) ? 0 : intval($results[0]['visit_count']);
 
         return $visitCount;
+    }
+
+    private function calculateTarget($amount) {
+        /*
+        return $amount;
+        */
+
+        $amount = floatval($amount);
+        $amount += 1;
+        $target = log($amount);
+        return $target;
     }
 }
