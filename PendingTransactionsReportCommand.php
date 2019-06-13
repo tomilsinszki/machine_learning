@@ -421,19 +421,32 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
                     foreach ($dates as $k2 => $date) {
                         foreach (array(null, array($partnerId), $this->getRecommendedPartnerIds($connection, $partnerId)) as $k3 => $currentPartnerIds) {
                             $s = $this->statisticsGetVisitCount($connection, $currentPartnerIds, $date['start'], $date['end']);
-                            $statistics[0][$k2][$k3][0] = $s['min'];
-                            $statistics[0][$k2][$k3][1] = $s['max'];
-                            $statistics[0][$k2][$k3][2] = $s['avg'];
-                            $statistics[0][$k2][$k3][4] = $s['sum'];
-                            $statistics[0][$k2][$k3][5] = $s['std'];
+                            $statistics[0][$k2][$k3][0][0] = $s['min'];
+                            $statistics[0][$k2][$k3][0][1] = $s['max'];
+                            $statistics[0][$k2][$k3][0][2] = $s['avg'];
+                            $statistics[0][$k2][$k3][0][4] = $s['sum'];
+                            $statistics[0][$k2][$k3][0][5] = $s['std'];
 
                             $s = $this->statisticsSumProgramAmount($connection, $currentPartnerIds, $date['start'], $date['end']);
-                            $statistics[1][$k2][$k3][0] = $s['min'];
-                            $statistics[1][$k2][$k3][1] = $s['max'];
-                            $statistics[1][$k2][$k3][2] = $s['avg'];
-                            $statistics[1][$k2][$k3][4] = $s['sum'];
-                            $statistics[1][$k2][$k3][5] = $s['std'];
+                            $statistics[1][$k2][$k3][0][0] = $s['min'];
+                            $statistics[1][$k2][$k3][0][1] = $s['max'];
+                            $statistics[1][$k2][$k3][0][2] = $s['avg'];
+                            $statistics[1][$k2][$k3][0][4] = $s['sum'];
+                            $statistics[1][$k2][$k3][0][5] = $s['std'];
                         }
+                        $s = $this->statisticsVisitCountForMainCategory($connection, $mainCategoryId, $date['start'], $date['end']);
+                        $statistics[0][$k2][3][0][0] = $s['min'];
+                        $statistics[0][$k2][3][0][1] = $s['max'];
+                        $statistics[0][$k2][3][0][2] = $s['avg'];
+                        $statistics[0][$k2][3][0][4] = $s['sum'];
+                        $statistics[0][$k2][3][0][5] = $s['std'];
+
+                        $s = $this->statisticsSumProgramAmountForMainCategory($connection, $mainCategoryId, $date['start'], $date['end']);
+                        $statistics[1][$k2][3][0][0] = $s['min'];
+                        $statistics[1][$k2][3][0][1] = $s['max'];
+                        $statistics[1][$k2][3][0][2] = $s['avg'];
+                        $statistics[1][$k2][3][0][4] = $s['sum'];
+                        $statistics[1][$k2][3][0][5] = $s['std'];
                     }
 
                     print_r($statistics);
@@ -1343,6 +1356,50 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
         $where = implode(' AND ', $whereTerms);
 
         $queryText = "SELECT MAX(`program_amount`) AS `max`, MIN(`program_amount`) AS `min`, AVG(`program_amount`) AS `avg`, SUM(`program_amount`) AS `sum`, STD(`program_amount`) AS `std` FROM ( SELECT SUM(programAmount) AS program_amount FROM cashback_transaction WHERE {$where} GROUP BY user_id ) s";
+
+        $statement = $connection->prepare($queryText);
+        $statement->execute();
+        $results = $statement->fetchAll();
+        $results = $results[0];
+        return $results;
+    }
+
+    private function statisticsVisitCountForMainCategory(Connection $connection, $mainCategoryId, $start, $end) {
+        $whereTerms = array();
+
+        if ($start instanceof \DateTime) {
+            $whereTerms[] = "( '{$start->format('Y-m-d')}' <= `time` )";
+        }
+
+        if ($end instanceof \DateTime) {
+            $whereTerms[] = "( `time` < '{$end->format('Y-m-d')}' )";
+        }
+
+        $where = implode(' AND ', $whereTerms);
+
+        $queryText = "SELECT MAX(`visit_count`) AS `max`, MIN(`visit_count`) AS `min`, AVG(`visit_count`) AS `avg`, SUM(`visit_count`) AS `sum`, STD(`visit_count`) AS `std` FROM  (SELECT COUNT(DISTINCT pv.id) AS visit_count FROM PartnerVisit pv LEFT JOIN Partner p ON pv.partner_id=p.id LEFT JOIN Category c ON p.main_category_id=c.id LEFT JOIN Category cp ON c.parent_id=cp.id WHERE p.status='active' AND ((c.id = {$mainCategoryId}) OR (cp.id = {$mainCategoryId})) AND {$where} GROUP BY pv.user_id ) c";
+
+        $statement = $connection->prepare($queryText);
+        $statement->execute();
+        $results = $statement->fetchAll();
+        $results = $results[0];
+        return $results;
+    }
+
+    private function statisticsSumProgramAmountForMainCategory(Connection $connection, $mainCategoryId, $start, $end) {
+        $whereTerms = array();
+
+        if ($start instanceof \DateTime) {
+            $whereTerms[] = "( '{$start->format('Y-m-d')}' <= `time` )";
+        }
+
+        if ($end instanceof \DateTime) {
+            $whereTerms[] = "( `time` < '{$end->format('Y-m-d')}' )";
+        }
+
+        $where = implode(' AND ', $whereTerms);
+
+        $queryText = "SELECT MAX(`program_amount`) AS `max`, MIN(`program_amount`) AS `min`, AVG(`program_amount`) AS `avg`, SUM(`program_amount`) AS `sum`, STD(`program_amount`) AS `std` FROM (SELECT SUM(t.programAmount) AS program_amount FROM cashback_transaction t LEFT JOIN Partner p ON t.partner_id=p.id LEFT JOIN Category c ON p.main_category_id=c.id LEFT JOIN Category cp ON c.parent_id=cp.id WHERE p.status='active' AND ((c.id = {$mainCategoryId}) OR (cp.id = {$mainCategoryId})) AND {$where} GROUP BY t.user_id ) s";
 
         $statement = $connection->prepare($queryText);
         $statement->execute();
