@@ -416,23 +416,29 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
                         }
                     }
 
-                    print_r($export);
+                    $statistics = array();
+
+                    foreach ($dates as $k2 => $date) {
+                        foreach (array(null, array($partnerId), $this->getRecommendedPartnerIds($connection, $partnerId)) as $k3 => $currentPartnerIds) {
+                            $s = $this->statisticsGetVisitCount($connection, $currentPartnerIds, $date['start'], $date['end']);
+                            $statistics[0][$k2][$k3][0] = $s['min'];
+                            $statistics[0][$k2][$k3][1] = $s['max'];
+                            $statistics[0][$k2][$k3][2] = $s['avg'];
+                            $statistics[0][$k2][$k3][4] = $s['sum'];
+                            $statistics[0][$k2][$k3][5] = $s['std'];
+
+                            $s = $this->statisticsSumProgramAmount($connection, $currentPartnerIds, $date['start'], $date['end']);
+                            $statistics[1][$k2][$k3][0] = $s['min'];
+                            $statistics[1][$k2][$k3][1] = $s['max'];
+                            $statistics[1][$k2][$k3][2] = $s['avg'];
+                            $statistics[1][$k2][$k3][4] = $s['sum'];
+                            $statistics[1][$k2][$k3][5] = $s['std'];
+                        }
+                    }
+
+                    print_r($statistics);
+                    //print_r($export);
                     exit();
-
-
-
-
-
-
-
-
-
-                    /*
-                    // xyz
-
-
-                    exit();
-                    */
 
                     /*
                     $tmpStart = clone $start;
@@ -1291,9 +1297,10 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
         $whereTerms = array();
 
         if (1 < count($partnerIds)) {
-            $whereTerms[] = "( partner_id IN ({$partnerIds}) )";
+            $partnerIdsList = implode(',', $partnerIds);
+            $whereTerms[] = "( partner_id IN ({$partnerIdsList}) )";
         } elseif (1 === count($partnerIds)) {
-            $whereTerms[] = "( partner_id = {$partnerIds} )";
+            $whereTerms[] = "( partner_id = {$partnerIds[0]} )";
         }
 
         if ($start instanceof \DateTime) {
@@ -1307,6 +1314,35 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
         $where = implode(' AND ', $whereTerms);
 
         $queryText = "SELECT MAX(`count`) AS `max`, MIN(`count`) AS `min`, AVG(`count`) AS `avg`, SUM(`count`) AS `sum`, STD(`count`) AS `std` FROM ( SELECT COUNT(DISTINCT id) AS `count` FROM PartnerVisit WHERE {$where} GROUP BY user_id ) v";
+
+        $statement = $connection->prepare($queryText);
+        $statement->execute();
+        $results = $statement->fetchAll();
+        $results = $results[0];
+        return $results;
+    }
+
+    private function statisticsSumProgramAmount(Connection $connection, $partnerIds, $start, $end) {
+        $whereTerms = array();
+
+        if (1 < count($partnerIds)) {
+            $partnerIdsList = implode(',', $partnerIds);
+            $whereTerms[] = "( partner_id IN ({$partnerIdsList}) )";
+        } elseif (1 === count($partnerIds)) {
+            $whereTerms[] = "( partner_id = {$partnerIds[0]} )";
+        }
+
+        if ($start instanceof \DateTime) {
+            $whereTerms[] = "( '{$start->format('Y-m-d')}' <= `time` )";
+        }
+
+        if ($end instanceof \DateTime) {
+            $whereTerms[] = "( `time` < '{$end->format('Y-m-d')}' )";
+        }
+
+        $where = implode(' AND ', $whereTerms);
+
+        $queryText = "SELECT MAX(`program_amount`) AS `max`, MIN(`program_amount`) AS `min`, AVG(`program_amount`) AS `avg`, SUM(`program_amount`) AS `sum`, STD(`program_amount`) AS `std` FROM ( SELECT SUM(programAmount) AS program_amount FROM cashback_transaction WHERE {$where} GROUP BY user_id ) s";
 
         $statement = $connection->prepare($queryText);
         $statement->execute();
