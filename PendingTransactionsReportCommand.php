@@ -343,11 +343,6 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
                         $age = $start->format('Y') - $birthday;
                     }
 
-                    /*
-                    echo("{$partnerIdResult['parent_category_id']},{$partnerIdResult['category_id']}\n");
-                    continue;
-                    */
-
                     $mainCategoryId = intval($partnerIdResult['parent_category_id']);
                     if (empty($mainCategoryId)) {
                         $mainCategoryId = intval($partnerIdResult['category_id']);
@@ -374,8 +369,6 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
 
                     $partnerId = intval($partnerIdResult['id']);
 
-                    $countRecommendedPartnerIds = count($this->getRecommendedPartnerIds($connection, $partnerId));
-
                     $dates = array();
 
                     $tmpStart = clone $start;
@@ -384,14 +377,15 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
                     $dates[0] = array('start' => $tmpStart, 'end' => $tmpEnd);
 
                     $tmpStart = clone $start;
-                    $tmpStart->modify('-3 month');
+                    $tmpStart->modify('-4 month');
                     $tmpEnd = clone $start;
+                    $tmpEnd->modify('-1 month');
                     $dates[1] = array('start' => $tmpStart, 'end' => $tmpEnd);
 
                     $tmpStart = clone $start;
-                    $tmpStart->modify('-13 month');
+                    $tmpStart->modify('-12 month');
                     $tmpEnd = clone $start;
-                    $tmpEnd->modify('-12 month');
+                    $tmpEnd->modify('-11 month');
                     $dates[2] = array('start' => $tmpStart, 'end' => $tmpEnd);
 
                     $tmpStart = clone $start;
@@ -403,11 +397,20 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
                     $tmpEnd = clone $start;
                     $dates[4] = array('start' => null, 'end' => $tmpEnd);
 
+                    foreach ($dates as $k2 => $date) {
+                        foreach (array(null, array($partnerId)) as $k3 => $currentPartnerIds) {
+                            $zScoreSumProgramAmount = $this->zScoreSumProgramAmount($connection, $currentPartnerIds, $userId, $date['start'], $date['end']);
+                            var_dump($zScoreSumProgramAmount);
+                        }
+                    }
+                    exit();
+
                     $export = array();
 
+                    /*
                     foreach ($dates as $k2 => $date) {
                         foreach (array(null, $userId) as $k4 => $currentUserId) {
-                            foreach (array(null, array($partnerId), $this->getRecommendedPartnerIds($connection, $partnerId)) as $k3 => $currentPartnerIds) {
+                            foreach (array(null, array($partnerId)) as $k3 => $currentPartnerIds) {
                                 $export[0][$k2][$k3][$k4] = $this->generalGetVisitCount($connection, $currentPartnerIds, $currentUserId, $date['start'], $date['end']);
                                 $export[1][$k2][$k3][$k4] = $this->generalGetSumProgramAmount($connection, $currentPartnerIds, $currentUserId, $date['start'], $date['end']);
                             }
@@ -415,210 +418,9 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
                             $export[1][$k2][3][$k4] = $this->getSumProgramAmountForMainCategory($connection, $mainCategoryId, $currentUserId, $date['start'], $date['end']);
                         }
                     }
-
-                    $statistics = array();
-
-                    foreach ($dates as $k2 => $date) {
-                        foreach (array(null, array($partnerId), $this->getRecommendedPartnerIds($connection, $partnerId)) as $k3 => $currentPartnerIds) {
-                            $s = $this->statisticsGetVisitCount($connection, $currentPartnerIds, $date['start'], $date['end']);
-                            $statistics[0][$k2][$k3][0][0] = $s['min'];
-                            $statistics[0][$k2][$k3][0][1] = $s['max'];
-                            $statistics[0][$k2][$k3][0][2] = $s['avg'];
-                            $statistics[0][$k2][$k3][0][4] = $s['sum'];
-                            $statistics[0][$k2][$k3][0][5] = $s['std'];
-
-                            $s = $this->statisticsSumProgramAmount($connection, $currentPartnerIds, $date['start'], $date['end']);
-                            $statistics[1][$k2][$k3][0][0] = $s['min'];
-                            $statistics[1][$k2][$k3][0][1] = $s['max'];
-                            $statistics[1][$k2][$k3][0][2] = $s['avg'];
-                            $statistics[1][$k2][$k3][0][4] = $s['sum'];
-                            $statistics[1][$k2][$k3][0][5] = $s['std'];
-                        }
-                        $s = $this->statisticsVisitCountForMainCategory($connection, $mainCategoryId, $date['start'], $date['end']);
-                        $statistics[0][$k2][3][0][0] = $s['min'];
-                        $statistics[0][$k2][3][0][1] = $s['max'];
-                        $statistics[0][$k2][3][0][2] = $s['avg'];
-                        $statistics[0][$k2][3][0][4] = $s['sum'];
-                        $statistics[0][$k2][3][0][5] = $s['std'];
-
-                        $s = $this->statisticsSumProgramAmountForMainCategory($connection, $mainCategoryId, $date['start'], $date['end']);
-                        $statistics[1][$k2][3][0][0] = $s['min'];
-                        $statistics[1][$k2][3][0][1] = $s['max'];
-                        $statistics[1][$k2][3][0][2] = $s['avg'];
-                        $statistics[1][$k2][3][0][4] = $s['sum'];
-                        $statistics[1][$k2][3][0][5] = $s['std'];
-                    }
-
-                    print_r($statistics);
-                    //print_r($export);
-                    exit();
+                    */
 
                     /*
-                    $tmpStart = clone $start;
-                    $tmpStart->modify('-1 month');
-                    $tmpEnd = clone $start;
-                    $visitCount0 = $this->getVisitCount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-                    $categoryVisitCount0 = $this->getVisitCountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
-                    $transactionSumProgramAmount0 = $this->getSumProgramAmount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-                    $categorySumProgramAmount0 = $this->getSumProgramAmountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
-                    $countPartnerSpent0 = $this->getNumberOfPartnersSpent($connection, $userId, $tmpStart, $tmpEnd);
-                    $countPartnerVisited0 = $this->getNumberOfPartnersVisited($connection, $userId, $tmpStart, $tmpEnd);
-                    $transactionSumProgramAmountForRecommendedPartners0 = $this->getSumProgramAmountForRecommendedPartners($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-                    $visitCountForRecommendedPartners0 = $this->getVisitCountForRecommendedPartners($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-
-                    $tmpStart = clone $start;
-                    $tmpStart->modify('-2 month');
-                    $tmpEnd = clone $start;
-                    $tmpEnd->modify('-1 month');
-                    $visitCount1 = $this->getVisitCount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-                    $categoryVisitCount1 = $this->getVisitCountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
-                    $transactionSumProgramAmount1 = $this->getSumProgramAmount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-                    $categorySumProgramAmount1 = $this->getSumProgramAmountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
-                    $countPartnerSpent1 = $this->getNumberOfPartnersSpent($connection, $userId, $tmpStart, $tmpEnd);
-                    $countPartnerVisited1 = $this->getNumberOfPartnersVisited($connection, $userId, $tmpStart, $tmpEnd);
-                    $transactionSumProgramAmountForRecommendedPartners1 = $this->getSumProgramAmountForRecommendedPartners($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-                    $visitCountForRecommendedPartners1 = $this->getVisitCountForRecommendedPartners($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-
-                    $tmpStart = clone $start;
-                    $tmpStart->modify('-3 month');
-                    $tmpEnd = clone $start;
-                    $tmpEnd->modify('-2 month');
-                    $visitCount2 = $this->getVisitCount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-                    $categoryVisitCount2 = $this->getVisitCountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
-                    $transactionSumProgramAmount2 = $this->getSumProgramAmount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-                    $categorySumProgramAmount2 = $this->getSumProgramAmountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
-                    $countPartnerSpent2 = $this->getNumberOfPartnersSpent($connection, $userId, $tmpStart, $tmpEnd);
-                    $countPartnerVisited2 = $this->getNumberOfPartnersVisited($connection, $userId, $tmpStart, $tmpEnd);
-                    $transactionSumProgramAmountForRecommendedPartners2 = $this->getSumProgramAmountForRecommendedPartners($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-                    $visitCountForRecommendedPartners2 = $this->getVisitCountForRecommendedPartners($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-
-                    $tmpStart = clone $start;
-                    $tmpStart->modify('-4 month');
-                    $tmpEnd = clone $start;
-                    $tmpEnd->modify('-3 month');
-                    $visitCount3 = $this->getVisitCount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-                    $categoryVisitCount3 = $this->getVisitCountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
-                    $transactionSumProgramAmount3 = $this->getSumProgramAmount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-                    $categorySumProgramAmount3 = $this->getSumProgramAmountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
-                    $countPartnerSpent3 = $this->getNumberOfPartnersSpent($connection, $userId, $tmpStart, $tmpEnd);
-                    $countPartnerVisited3 = $this->getNumberOfPartnersVisited($connection, $userId, $tmpStart, $tmpEnd);
-                    $transactionSumProgramAmountForRecommendedPartners3 = $this->getSumProgramAmountForRecommendedPartners($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-                    $visitCountForRecommendedPartners3 = $this->getVisitCountForRecommendedPartners($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-
-                    $tmpStart = clone $start;
-                    $tmpStart->modify('-5 month');
-                    $tmpEnd = clone $start;
-                    $tmpEnd->modify('-4 month');
-                    $visitCount4 = $this->getVisitCount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-                    $categoryVisitCount4 = $this->getVisitCountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
-                    $transactionSumProgramAmount4 = $this->getSumProgramAmount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-                    $categorySumProgramAmount4 = $this->getSumProgramAmountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
-                    $countPartnerSpent4 = $this->getNumberOfPartnersSpent($connection, $userId, $tmpStart, $tmpEnd);
-                    $countPartnerVisited4 = $this->getNumberOfPartnersVisited($connection, $userId, $tmpStart, $tmpEnd);
-                    $transactionSumProgramAmountForRecommendedPartners4 = $this->getSumProgramAmountForRecommendedPartners($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-                    $visitCountForRecommendedPartners4 = $this->getVisitCountForRecommendedPartners($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-
-                    $tmpStart = clone $start;
-                    $tmpStart->modify('-6 month');
-                    $tmpEnd = clone $start;
-                    $tmpEnd->modify('-5 month');
-                    $visitCount5 = $this->getVisitCount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-                    $categoryVisitCount5 = $this->getVisitCountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
-                    $transactionSumProgramAmount5 = $this->getSumProgramAmount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-                    $categorySumProgramAmount5 = $this->getSumProgramAmountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
-                    $countPartnerSpent5 = $this->getNumberOfPartnersSpent($connection, $userId, $tmpStart, $tmpEnd);
-                    $countPartnerVisited5 = $this->getNumberOfPartnersVisited($connection, $userId, $tmpStart, $tmpEnd);
-                    $transactionSumProgramAmountForRecommendedPartners5 = $this->getSumProgramAmountForRecommendedPartners($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-                    $visitCountForRecommendedPartners5 = $this->getVisitCountForRecommendedPartners($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-
-                    $tmpStart = clone $start;
-                    $tmpStart->modify('-7 month');
-                    $tmpEnd = clone $start;
-                    $tmpEnd->modify('-6 month');
-                    $visitCount6 = $this->getVisitCount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-                    $categoryVisitCount6 = $this->getVisitCountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
-                    $transactionSumProgramAmount6 = $this->getSumProgramAmount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-                    $categorySumProgramAmount6 = $this->getSumProgramAmountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
-                    $countPartnerSpent6 = $this->getNumberOfPartnersSpent($connection, $userId, $tmpStart, $tmpEnd);
-                    $countPartnerVisited6 = $this->getNumberOfPartnersVisited($connection, $userId, $tmpStart, $tmpEnd);
-                    $transactionSumProgramAmountForRecommendedPartners6 = $this->getSumProgramAmountForRecommendedPartners($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-                    $visitCountForRecommendedPartners6 = $this->getVisitCountForRecommendedPartners($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-
-                    $tmpStart = clone $start;
-                    $tmpStart->modify('-8 month');
-                    $tmpEnd = clone $start;
-                    $tmpEnd->modify('-7 month');
-                    $visitCount7 = $this->getVisitCount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-                    $categoryVisitCount7 = $this->getVisitCountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
-                    $transactionSumProgramAmount7 = $this->getSumProgramAmount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-                    $categorySumProgramAmount7 = $this->getSumProgramAmountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
-                    $countPartnerSpent7 = $this->getNumberOfPartnersSpent($connection, $userId, $tmpStart, $tmpEnd);
-                    $countPartnerVisited7 = $this->getNumberOfPartnersVisited($connection, $userId, $tmpStart, $tmpEnd);
-                    $transactionSumProgramAmountForRecommendedPartners7 = $this->getSumProgramAmountForRecommendedPartners($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-                    $visitCountForRecommendedPartners7 = $this->getVisitCountForRecommendedPartners($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-
-                    $tmpStart = clone $start;
-                    $tmpStart->modify('-9 month');
-                    $tmpEnd = clone $start;
-                    $tmpEnd->modify('-8 month');
-                    $visitCount8 = $this->getVisitCount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-                    $categoryVisitCount8 = $this->getVisitCountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
-                    $transactionSumProgramAmount8 = $this->getSumProgramAmount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-                    $categorySumProgramAmount8 = $this->getSumProgramAmountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
-                    $countPartnerSpent8 = $this->getNumberOfPartnersSpent($connection, $userId, $tmpStart, $tmpEnd);
-                    $countPartnerVisited8 = $this->getNumberOfPartnersVisited($connection, $userId, $tmpStart, $tmpEnd);
-                    $transactionSumProgramAmountForRecommendedPartners8 = $this->getSumProgramAmountForRecommendedPartners($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-                    $visitCountForRecommendedPartners8 = $this->getVisitCountForRecommendedPartners($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-
-                    $tmpStart = clone $start;
-                    $tmpStart->modify('-10 month');
-                    $tmpEnd = clone $start;
-                    $tmpEnd->modify('-9 month');
-                    $visitCount9 = $this->getVisitCount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-                    $categoryVisitCount9 = $this->getVisitCountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
-                    $transactionSumProgramAmount9 = $this->getSumProgramAmount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-                    $categorySumProgramAmount9 = $this->getSumProgramAmountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
-                    $countPartnerSpent9 = $this->getNumberOfPartnersSpent($connection, $userId, $tmpStart, $tmpEnd);
-                    $countPartnerVisited9 = $this->getNumberOfPartnersVisited($connection, $userId, $tmpStart, $tmpEnd);
-                    $transactionSumProgramAmountForRecommendedPartners9 = $this->getSumProgramAmountForRecommendedPartners($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-                    $visitCountForRecommendedPartners9 = $this->getVisitCountForRecommendedPartners($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-
-                    $tmpStart = clone $start;
-                    $tmpStart->modify('-11 month');
-                    $tmpEnd = clone $start;
-                    $tmpEnd->modify('-10 month');
-                    $visitCount10 = $this->getVisitCount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-                    $categoryVisitCount10 = $this->getVisitCountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
-                    $transactionSumProgramAmount10 = $this->getSumProgramAmount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-                    $categorySumProgramAmount10 = $this->getSumProgramAmountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
-                    $countPartnerSpent10 = $this->getNumberOfPartnersSpent($connection, $userId, $tmpStart, $tmpEnd);
-                    $countPartnerVisited10 = $this->getNumberOfPartnersVisited($connection, $userId, $tmpStart, $tmpEnd);
-                    $transactionSumProgramAmountForRecommendedPartners10 = $this->getSumProgramAmountForRecommendedPartners($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-                    $visitCountForRecommendedPartners10 = $this->getVisitCountForRecommendedPartners($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-
-                    $tmpStart = clone $start;
-                    $tmpStart->modify('-12 month');
-                    $tmpEnd = clone $start;
-                    $tmpEnd->modify('-11 month');
-                    $visitCount11 = $this->getVisitCount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-                    $categoryVisitCount11 = $this->getVisitCountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
-                    $transactionSumProgramAmount11 = $this->getSumProgramAmount($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-                    $categorySumProgramAmount11 = $this->getSumProgramAmountForMainCategory($connection, $mainCategoryId, $userId, $tmpStart, $tmpEnd);
-                    $countPartnerSpent11 = $this->getNumberOfPartnersSpent($connection, $userId, $tmpStart, $tmpEnd);
-                    $countPartnerVisited11 = $this->getNumberOfPartnersVisited($connection, $userId, $tmpStart, $tmpEnd);
-                    $transactionSumProgramAmountForRecommendedPartners11 = $this->getSumProgramAmountForRecommendedPartners($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-                    $visitCountForRecommendedPartners11 = $this->getVisitCountForRecommendedPartners($connection, $partnerId, $userId, $tmpStart, $tmpEnd);
-
-                    $tmpEnd = clone $start;
-                    $visitCount12 = $this->getVisitCount($connection, $partnerId, $userId, null, $tmpEnd);
-                    $categoryVisitCount12 = $this->getVisitCountForMainCategory($connection, $mainCategoryId, $userId, null, $tmpEnd);
-                    $transactionSumProgramAmount12 = $this->getSumProgramAmount($connection, $partnerId, $userId, null, $tmpEnd);
-                    $categorySumProgramAmount12 = $this->getSumProgramAmountForMainCategory($connection, $mainCategoryId, $userId, null, $tmpEnd);
-                    $countPartnerSpent12 = $this->getNumberOfPartnersSpent($connection, $userId, null, $tmpEnd);
-                    $countPartnerVisited12 = $this->getNumberOfPartnersVisited($connection, $userId, null, $tmpEnd);
-                    $transactionSumProgramAmountForRecommendedPartners12 = $this->getSumProgramAmountForRecommendedPartners($connection, $partnerId, $userId, null, $tmpEnd);
-                    $visitCountForRecommendedPartners12 = $this->getVisitCountForRecommendedPartners($connection, $partnerId, $userId, null, $tmpEnd);
-
                     $transactionStatement = $connection->prepare("SELECT SUM(programAmount) AS program_amount FROM cashback_transaction WHERE partner_id={$partnerId} AND user_id={$userId} AND '{$startString}'<=time AND time<='{$endString}'");
                     $transactionStatement->execute();
                     $transactionProgramAmountResults = $transactionStatement->fetchAll();
@@ -656,219 +458,6 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
                     $output .= ",";
                     $output .= "{$countRecommendedPartnerIds}";
                     $output .= ",";
-                    $output .= "{$visitCountForRecommendedPartners0}";
-                    $output .= ",";
-                    $output .= "{$visitCountForRecommendedPartners1}";
-                    $output .= ",";
-                    $output .= "{$visitCountForRecommendedPartners2}";
-                    $output .= ",";
-                    $output .= "{$visitCountForRecommendedPartners3}";
-                    $output .= ",";
-                    $output .= "{$visitCountForRecommendedPartners4}";
-                    $output .= ",";
-                    $output .= "{$visitCountForRecommendedPartners5}";
-                    $output .= ",";
-                    $output .= "{$visitCountForRecommendedPartners6}";
-                    $output .= ",";
-                    $output .= "{$visitCountForRecommendedPartners7}";
-                    $output .= ",";
-                    $output .= "{$visitCountForRecommendedPartners8}";
-                    $output .= ",";
-                    $output .= "{$visitCountForRecommendedPartners9}";
-                    $output .= ",";
-                    $output .= "{$visitCountForRecommendedPartners10}";
-                    $output .= ",";
-                    $output .= "{$visitCountForRecommendedPartners11}";
-                    $output .= ",";
-                    $output .= "{$visitCountForRecommendedPartners12}";
-                    $output .= ",";
-                    $output .= "{$transactionSumProgramAmountForRecommendedPartners0}";
-                    $output .= ",";
-                    $output .= "{$transactionSumProgramAmountForRecommendedPartners1}";
-                    $output .= ",";
-                    $output .= "{$transactionSumProgramAmountForRecommendedPartners2}";
-                    $output .= ",";
-                    $output .= "{$transactionSumProgramAmountForRecommendedPartners3}";
-                    $output .= ",";
-                    $output .= "{$transactionSumProgramAmountForRecommendedPartners4}";
-                    $output .= ",";
-                    $output .= "{$transactionSumProgramAmountForRecommendedPartners5}";
-                    $output .= ",";
-                    $output .= "{$transactionSumProgramAmountForRecommendedPartners6}";
-                    $output .= ",";
-                    $output .= "{$transactionSumProgramAmountForRecommendedPartners7}";
-                    $output .= ",";
-                    $output .= "{$transactionSumProgramAmountForRecommendedPartners8}";
-                    $output .= ",";
-                    $output .= "{$transactionSumProgramAmountForRecommendedPartners9}";
-                    $output .= ",";
-                    $output .= "{$transactionSumProgramAmountForRecommendedPartners10}";
-                    $output .= ",";
-                    $output .= "{$transactionSumProgramAmountForRecommendedPartners11}";
-                    $output .= ",";
-                    $output .= "{$transactionSumProgramAmountForRecommendedPartners12}";
-                    $output .= ",";
-                    $output .= "{$countPartnerVisited0}";
-                    $output .= ",";
-                    $output .= "{$countPartnerVisited1}";
-                    $output .= ",";
-                    $output .= "{$countPartnerVisited2}";
-                    $output .= ",";
-                    $output .= "{$countPartnerVisited3}";
-                    $output .= ",";
-                    $output .= "{$countPartnerVisited4}";
-                    $output .= ",";
-                    $output .= "{$countPartnerVisited5}";
-                    $output .= ",";
-                    $output .= "{$countPartnerVisited6}";
-                    $output .= ",";
-                    $output .= "{$countPartnerVisited7}";
-                    $output .= ",";
-                    $output .= "{$countPartnerVisited8}";
-                    $output .= ",";
-                    $output .= "{$countPartnerVisited9}";
-                    $output .= ",";
-                    $output .= "{$countPartnerVisited10}";
-                    $output .= ",";
-                    $output .= "{$countPartnerVisited11}";
-                    $output .= ",";
-                    $output .= "{$countPartnerVisited12}";
-
-                    $output .= ",";
-                    $output .= "{$countPartnerSpent0}";
-                    $output .= ",";
-                    $output .= "{$countPartnerSpent1}";
-                    $output .= ",";
-                    $output .= "{$countPartnerSpent2}";
-                    $output .= ",";
-                    $output .= "{$countPartnerSpent3}";
-                    $output .= ",";
-                    $output .= "{$countPartnerSpent4}";
-                    $output .= ",";
-                    $output .= "{$countPartnerSpent5}";
-                    $output .= ",";
-                    $output .= "{$countPartnerSpent6}";
-                    $output .= ",";
-                    $output .= "{$countPartnerSpent7}";
-                    $output .= ",";
-                    $output .= "{$countPartnerSpent8}";
-                    $output .= ",";
-                    $output .= "{$countPartnerSpent9}";
-                    $output .= ",";
-                    $output .= "{$countPartnerSpent10}";
-                    $output .= ",";
-                    $output .= "{$countPartnerSpent11}";
-                    $output .= ",";
-                    $output .= "{$countPartnerSpent12}";
-                    $output .= ",";
-                    $output .= "{$categoryVisitCount0}";
-                    $output .= ",";
-                    $output .= "{$categoryVisitCount1}";
-                    $output .= ",";
-                    $output .= "{$categoryVisitCount2}";
-                    $output .= ",";
-                    $output .= "{$categoryVisitCount3}";
-                    $output .= ",";
-                    $output .= "{$categoryVisitCount4}";
-                    $output .= ",";
-                    $output .= "{$categoryVisitCount5}";
-                    $output .= ",";
-                    $output .= "{$categoryVisitCount6}";
-                    $output .= ",";
-                    $output .= "{$categoryVisitCount7}";
-                    $output .= ",";
-                    $output .= "{$categoryVisitCount8}";
-                    $output .= ",";
-                    $output .= "{$categoryVisitCount9}";
-                    $output .= ",";
-                    $output .= "{$categoryVisitCount10}";
-                    $output .= ",";
-                    $output .= "{$categoryVisitCount11}";
-                    $output .= ",";
-                    $output .= "{$categoryVisitCount12}";
-                    $output .= ",";
-                    $output .= "{$categorySumProgramAmount0}";
-                    $output .= ",";
-                    $output .= "{$categorySumProgramAmount1}";
-                    $output .= ",";
-                    $output .= "{$categorySumProgramAmount2}";
-                    $output .= ",";
-                    $output .= "{$categorySumProgramAmount3}";
-                    $output .= ",";
-                    $output .= "{$categorySumProgramAmount4}";
-                    $output .= ",";
-                    $output .= "{$categorySumProgramAmount5}";
-                    $output .= ",";
-                    $output .= "{$categorySumProgramAmount6}";
-                    $output .= ",";
-                    $output .= "{$categorySumProgramAmount7}";
-                    $output .= ",";
-                    $output .= "{$categorySumProgramAmount8}";
-                    $output .= ",";
-                    $output .= "{$categorySumProgramAmount9}";
-                    $output .= ",";
-                    $output .= "{$categorySumProgramAmount10}";
-                    $output .= ",";
-                    $output .= "{$categorySumProgramAmount11}";
-                    $output .= ",";
-                    $output .= "{$categorySumProgramAmount12}";
-                    $output .= ",";
-                    $output .= "{$visitCount0}";
-                    $output .= ",";
-                    $output .= "{$visitCount1}";
-                    $output .= ",";
-                    $output .= "{$visitCount2}";
-                    $output .= ",";
-                    $output .= "{$visitCount3}";
-                    $output .= ",";
-                    $output .= "{$visitCount4}";
-                    $output .= ",";
-                    $output .= "{$visitCount4}";
-                    $output .= ",";
-                    $output .= "{$visitCount5}";
-                    $output .= ",";
-                    $output .= "{$visitCount6}";
-                    $output .= ",";
-                    $output .= "{$visitCount7}";
-                    $output .= ",";
-                    $output .= "{$visitCount8}";
-                    $output .= ",";
-                    $output .= "{$visitCount9}";
-                    $output .= ",";
-                    $output .= "{$visitCount10}";
-                    $output .= ",";
-                    $output .= "{$visitCount11}";
-                    $output .= ",";
-                    $output .= "{$visitCount12}";
-                    $output .= ",";
-                    $output .= "{$transactionSumProgramAmount0}";
-                    $output .= ",";
-                    $output .= "{$transactionSumProgramAmount1}";
-                    $output .= ",";
-                    $output .= "{$transactionSumProgramAmount2}";
-                    $output .= ",";
-                    $output .= "{$transactionSumProgramAmount3}";
-                    $output .= ",";
-                    $output .= "{$transactionSumProgramAmount4}";
-                    $output .= ",";
-                    $output .= "{$transactionSumProgramAmount5}";
-                    $output .= ",";
-                    $output .= "{$transactionSumProgramAmount6}";
-                    $output .= ",";
-                    $output .= "{$transactionSumProgramAmount7}";
-                    $output .= ",";
-                    $output .= "{$transactionSumProgramAmount8}";
-                    $output .= ",";
-                    $output .= "{$transactionSumProgramAmount9}";
-                    $output .= ",";
-                    $output .= "{$transactionSumProgramAmount10}";
-                    $output .= ",";
-                    $output .= "{$transactionSumProgramAmount11}";
-                    $output .= ",";
-                    $output .= "{$transactionSumProgramAmount12}";
-                    $output .= ",";
-                    $output .= "{$transactionSumProgramAmount}";
-                    $output .= "\n";
 
                     echo($output);
                     */
@@ -1150,6 +739,55 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
         $results = $statement->fetchAll();
         $amount = empty($results[0]['program_amount']) ? 0.0 : $results[0]['program_amount'];
         return $amount;
+    }
+
+    private function zScoreSumProgramAmount(Connection $connection, $partnerIds, $currentUserId, $start, $end) {
+        $whereTerms = array();
+
+        if (is_array($partnerIds)) {
+            if (1 < count($partnerIds)) {
+                $partnerIdsList = implode(',', $partnerIds);
+                $whereTerms[] = "( partner_id IN ({$partnerIdsList}) )";
+            } elseif (1 === count($partnerIds)) {
+                $whereTerms[] = "( partner_id = {$partnerIds[0]} )";
+            }
+        }
+
+        if ($start instanceof \DateTime) {
+            $whereTerms[] = "( '{$start->format('Y-m-d')}' <= `time` )";
+        }
+
+        if ($end instanceof \DateTime) {
+            $whereTerms[] = "( `time` < '{$end->format('Y-m-d')}' )";
+        }
+
+        $where = implode(' AND ', $whereTerms);
+
+        $queryText = "SELECT AVG(x.t_sum_amount) AS `avg`, STD(x.t_sum_amount) AS `std` FROM (SELECT u.id u_id, COUNT(DISTINCT t.id) AS t_count, SUM(t.programAmount) t_sum_amount FROM account_user u LEFT JOIN cashback_transaction t ON u.id=t.user_id WHERE {$where} GROUP BY u.id HAVING 0<t_count) x";
+
+        $statement = $connection->prepare($queryText);
+        $statement->execute();
+        $results = $statement->fetchAll();
+
+        $avg = empty($results[0]['avg']) ? 0.0 : floatval($results[0]['avg']);
+        $std = empty($results[0]['std']) ? 0.0 : floatval($results[0]['std']);
+
+        $queryText = "SELECT u.id u_id, SUM(t.programAmount) t_sum_amount FROM account_user u LEFT JOIN cashback_transaction t ON u.id=t.user_id WHERE ( u.id = {$currentUserId} ) AND {$where}";
+
+        $statement = $connection->prepare($queryText);
+        $statement->execute();
+        $results = $statement->fetchAll();
+
+        $x = empty($results[0]['t_sum_amount']) ? 0.0 : floatval($results[0]['t_sum_amount']);
+
+        $zScore = -100.0;
+        if (!empty($std)) {
+            $zScore = ($x - $avg) / ($std);
+        }
+
+        $zScore = number_format($zScore, 3, '.', '');
+
+        return $zScore;
     }
 
     private function generalGetSumProgramAmount(Connection $connection, $partnerIds, $userId, $start, $end) {
