@@ -397,16 +397,23 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
                     $tmpEnd = clone $start;
                     $dates[4] = array('start' => null, 'end' => $tmpEnd);
 
-                    foreach ($dates as $k2 => $date) {
-                        foreach (array(null, array($partnerId)) as $k3 => $currentPartnerIds) {
-                            $zScoreSumProgramAmount = $this->zScoreSumProgramAmount($connection, $currentPartnerIds, $userId, $date['start'], $date['end']);
-                            var_dump($zScoreSumProgramAmount);
-                        }
-                    }
-                    exit();
-
                     $export = array();
 
+                    foreach ($dates as $k2 => $date) {
+                        foreach (array(0 => array($partnerId), 1 => $this->getRecommendedPartnerIds($connection, $partnerId), 3 => null) as $k3 => $currentPartnerIds) {
+                            $export[1][$k3][$k2] = $this->zScoreProgramAmount($connection, $currentPartnerIds, $userId, $date['start'], $date['end']);
+                            $export[2][$k3][$k2] = $this->zScoreTransactionCount($connection, $currentPartnerIds, $userId, $date['start'], $date['end']);
+                        }
+
+                        $export[1][2][$k2] = $this->zScoreProgramAmountForMainCategory($connection, $mainCategoryId, $userId, $date['start'], $date['end']);
+
+                        ksort($export[1]);
+                    }
+
+                    print_r($export);
+                    exit();
+
+                    // xyz
                     /*
                     foreach ($dates as $k2 => $date) {
                         foreach (array(null, $userId) as $k4 => $currentUserId) {
@@ -741,7 +748,64 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
         return $amount;
     }
 
-    private function zScoreSumProgramAmount(Connection $connection, $partnerIds, $currentUserId, $start, $end) {
+    private function calculateZScore($x, $avg, $std) {
+        if (empty($avg) or empty($std)) {
+            return "-11.00";
+        }
+
+        if (empty($x)) {
+            return "-10.00";
+        }
+
+        $zScore = ($x - $avg) / ($std);
+        $zScore = number_format($zScore, 2, '.', '');
+
+        return $zScore;
+    }
+
+    private function zScoreTransactionCount(Connection $connection, $partnerIds, $currentUserId, $start, $end) {
+        $whereTerms = array();
+
+        if (is_array($partnerIds)) {
+            if (1 < count($partnerIds)) {
+                $partnerIdsList = implode(',', $partnerIds);
+                $whereTerms[] = "( partner_id IN ({$partnerIdsList}) )";
+            } elseif (1 === count($partnerIds)) {
+                $whereTerms[] = "( partner_id = {$partnerIds[0]} )";
+            }
+        }
+
+        if ($start instanceof \DateTime) {
+            $whereTerms[] = "( '{$start->format('Y-m-d')}' <= `time` )";
+        }
+
+        if ($end instanceof \DateTime) {
+            $whereTerms[] = "( `time` < '{$end->format('Y-m-d')}' )";
+        }
+
+        $where = implode(' AND ', $whereTerms);
+
+        $queryText = "SELECT AVG(x.t_count) AS `avg`, STD(x.t_count) AS `std` FROM (SELECT u.id u_id, COUNT(DISTINCT t.id) AS t_count FROM account_user u LEFT JOIN cashback_transaction t ON u.id=t.user_id WHERE {$where} GROUP BY u.id HAVING 0<t_count) x";
+
+        $statement = $connection->prepare($queryText);
+        $statement->execute();
+        $results = $statement->fetchAll();
+
+        $avg = empty($results[0]['avg']) ? 0.0 : floatval($results[0]['avg']);
+        $std = empty($results[0]['std']) ? 0.0 : floatval($results[0]['std']);
+
+        $queryText = "SELECT u.id u_id, COUNT(DISTINCT t.id) t_count FROM account_user u LEFT JOIN cashback_transaction t ON u.id=t.user_id WHERE ( u.id = {$currentUserId} ) AND {$where}";
+
+        $statement = $connection->prepare($queryText);
+        $statement->execute();
+        $results = $statement->fetchAll();
+
+        $x = empty($results[0]['t_count']) ? 0.0 : floatval($results[0]['t_count']);
+
+        return $this->calculateZScore($x, $avg, $std);
+    }
+
+    private function zScoreProgramAmount(Connection $connection, $partnerIds, $currentUserId, $start, $end) {
         $whereTerms = array();
 
         if (is_array($partnerIds)) {
@@ -780,14 +844,40 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
 
         $x = empty($results[0]['t_sum_amount']) ? 0.0 : floatval($results[0]['t_sum_amount']);
 
-        $zScore = -100.0;
-        if (!empty($std)) {
-            $zScore = ($x - $avg) / ($std);
+        return $this->calculateZScore($x, $avg, $std);
+    }
+
+    private function zScoreProgramAmountForMainCategory(Connection $connection, $mainCategoryId, $currentUserId, $start, $end) {
+        $whereTerms = array();
+
+        if ($start instanceof \DateTime) {
+            $whereTerms[] = "( '{$start->format('Y-m-d')}' <= t.`time` )";
         }
 
-        $zScore = number_format($zScore, 3, '.', '');
+        if ($end instanceof \DateTime) {
+            $whereTerms[] = "( t.`time` < '{$end->format('Y-m-d')}' )";
+        }
 
-        return $zScore;
+        $where = implode(' AND ', $whereTerms);
+
+        $queryText = "SELECT AVG(x.t_sum_amount) AS `avg`, STD(x.t_sum_amount) AS `std` FROM (SELECT u.id u_id, COUNT(DISTINCT t.id) AS t_count, SUM(t.programAmount) t_sum_amount FROM cashback_transaction t LEFT JOIN account_user u ON t.user_id=u.id LEFT JOIN Partner p ON t.partner_id=p.id LEFT JOIN Category c ON p.main_category_id=c.id LEFT JOIN Category cp ON c.parent_id=cp.id WHERE {$where} AND p.status='active' AND ((c.id = {$mainCategoryId}) OR (cp.id = {$mainCategoryId})) GROUP BY u.id) x";
+
+        $statement = $connection->prepare($queryText);
+        $statement->execute();
+        $results = $statement->fetchAll();
+
+        $avg = empty($results[0]['avg']) ? 0.0 : floatval($results[0]['avg']);
+        $std = empty($results[0]['std']) ? 0.0 : floatval($results[0]['std']);
+
+        $queryText = "SELECT u.id u_id, SUM(t.programAmount) t_sum_amount FROM cashback_transaction t LEFT JOIN account_user u ON t.user_id=u.id LEFT JOIN Partner p ON t.partner_id=p.id LEFT JOIN Category c ON p.main_category_id=c.id LEFT JOIN Category cp ON c.parent_id=cp.id WHERE ( u.id = {$currentUserId} ) AND {$where} AND p.status='active' AND ((c.id = {$mainCategoryId}) OR (cp.id = {$mainCategoryId}))";
+
+        $statement = $connection->prepare($queryText);
+        $statement->execute();
+        $results = $statement->fetchAll();
+
+        $x = empty($results[0]['t_sum_amount']) ? 0.0 : floatval($results[0]['t_sum_amount']);
+
+        return $this->calculateZScore($x, $avg, $std);
     }
 
     private function generalGetSumProgramAmount(Connection $connection, $partnerIds, $userId, $start, $end) {
