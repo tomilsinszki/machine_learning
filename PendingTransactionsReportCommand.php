@@ -404,6 +404,10 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
                             $export[0][$k3][$k2] = $this->zScoreVisitCount($connection, $currentPartnerIds, $userId, $date['start'], $date['end']);
                             $export[1][$k3][$k2] = $this->zScoreProgramAmount($connection, $currentPartnerIds, $userId, $date['start'], $date['end']);
                             $export[2][$k3][$k2] = $this->zScoreTransactionCount($connection, $currentPartnerIds, $userId, $date['start'], $date['end']);
+
+                            if ($k3 !== 0) {
+                                $export[3][$k3][$k2] = $this->zScoreNumberOfPartnersVisited($connection, $currentPartnerIds, $userId, $date['start'], $date['end']);
+                            }
                         }
 
                         $export[0][2][$k2] = $this->zScoreVisitCountForMainCategory($connection, $mainCategoryId, $userId, $date['start'], $date['end']);
@@ -810,6 +814,48 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
         return $this->calculateZScore($x, $avg, $std);
     }
 
+    private function zScoreNumberOfPartnersVisited(Connection $connection, $partnerIds, $currentUserId, $start, $end) {
+        $whereTerms = array();
+
+        if (is_array($partnerIds)) {
+            if (1 < count($partnerIds)) {
+                $partnerIdsList = implode(',', $partnerIds);
+                $whereTerms[] = "( partner_id IN ({$partnerIdsList}) )";
+            } elseif (1 === count($partnerIds)) {
+                $whereTerms[] = "( partner_id = {$partnerIds[0]} )";
+            }
+        }
+
+        if ($start instanceof \DateTime) {
+            $whereTerms[] = "( '{$start->format('Y-m-d')}' <= `time` )";
+        }
+
+        if ($end instanceof \DateTime) {
+            $whereTerms[] = "( `time` < '{$end->format('Y-m-d')}' )";
+        }
+
+        $where = implode(' AND ', $whereTerms);
+
+        $queryText = "SELECT AVG(x.partner_count) AS `avg`, STD(x.partner_count) AS `std` FROM (SELECT pv.user_id AS user_id, COUNT(DISTINCT pv.partner_id) AS partner_count FROM PartnerVisit pv WHERE {$where} AND (pv.user_id IS NOT NULL) GROUP BY pv.user_id) x";
+
+        $statement = $connection->prepare($queryText);
+        $statement->execute();
+        $results = $statement->fetchAll();
+
+        $avg = empty($results[0]['avg']) ? 0.0 : floatval($results[0]['avg']);
+        $std = empty($results[0]['std']) ? 0.0 : floatval($results[0]['std']);
+
+        $queryText = "SELECT pv.user_id AS user_id, COUNT(DISTINCT pv.partner_id) AS partner_count FROM PartnerVisit pv WHERE {$where} AND (pv.user_id = {$currentUserId}) AND (pv.user_id IS NOT NULL)";
+
+        $statement = $connection->prepare($queryText);
+        $statement->execute();
+        $results = $statement->fetchAll();
+
+        $x = empty($results[0]['partner_count']) ? 0.0 : floatval($results[0]['partner_count']);
+
+        return $this->calculateZScore($x, $avg, $std);
+    }
+
     private function zScoreVisitCount(Connection $connection, $partnerIds, $currentUserId, $start, $end) {
         $whereTerms = array();
 
@@ -841,7 +887,7 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
         $avg = empty($results[0]['avg']) ? 0.0 : floatval($results[0]['avg']);
         $std = empty($results[0]['std']) ? 0.0 : floatval($results[0]['std']);
 
-        $queryText = "SELECT pv.user_id AS user_id, COUNT(DISTINCT pv.id) AS visit_count FROM PartnerVisit pv WHERE {$where} AND (pv.user_id = {$currentUserId}) AND (pv.user_id IS NOT NULL) GROUP BY pv.user_id";
+        $queryText = "SELECT pv.user_id AS user_id, COUNT(DISTINCT pv.id) AS visit_count FROM PartnerVisit pv WHERE {$where} AND (pv.user_id = {$currentUserId}) AND (pv.user_id IS NOT NULL)";
 
         $statement = $connection->prepare($queryText);
         $statement->execute();
@@ -894,7 +940,6 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
         return $this->calculateZScore($x, $avg, $std);
     }
 
-    // xyz
     private function zScoreVisitCountForMainCategory(Connection $connection, $mainCategoryId, $currentUserId, $start, $end) {
         $whereTerms = array();
 
