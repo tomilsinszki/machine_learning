@@ -877,8 +877,8 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
         }
 
         $where = implode(' AND ', $whereTerms);
-
-        $queryText = "SELECT AVG(x.visit_count) AS `avg`, STD(x.visit_count) AS `std` FROM (SELECT pv.user_id AS user_id, COUNT(DISTINCT pv.id) AS visit_count FROM PartnerVisit pv WHERE {$where} AND (pv.user_id IS NOT NULL) GROUP BY pv.user_id) x";
+        
+        $queryText = "SELECT AVG(x.visit_count) AS `avg`, STD(x.visit_count) AS `std` FROM (SELECT tmp_t.user_id AS user_id, tmp_t.t_count AS t_count, COUNT(DISTINCT pv.id) AS visit_count FROM (SELECT t.user_id AS user_id, COUNT(DISTINCT t.id) AS t_count FROM cashback_transaction t WHERE {$where} GROUP BY t.user_id) tmp_t LEFT JOIN PartnerVisit pv ON tmp_t.user_id=pv.user_id WHERE {$where} GROUP BY tmp_t.user_id) x";
 
         $statement = $connection->prepare($queryText);
         $statement->execute();
@@ -986,7 +986,7 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
 
         $where = implode(' AND ', $whereTerms);
 
-        $queryText = "SELECT AVG(x.t_sum_amount) AS `avg`, STD(x.t_sum_amount) AS `std` FROM (SELECT u.id u_id, COUNT(DISTINCT t.id) AS t_count, SUM(t.programAmount) t_sum_amount FROM cashback_transaction t LEFT JOIN account_user u ON t.user_id=u.id LEFT JOIN Partner p ON t.partner_id=p.id LEFT JOIN Category c ON p.main_category_id=c.id LEFT JOIN Category cp ON c.parent_id=cp.id WHERE {$where} AND p.status='active' AND ((c.id = {$mainCategoryId}) OR (cp.id = {$mainCategoryId})) GROUP BY u.id) x";
+        $queryText = "SELECT AVG(x.t_sum_amount) AS `avg`, STD(x.t_sum_amount) AS `std` FROM (SELECT u.id u_id, COUNT(DISTINCT t.id) AS t_count, SUM(t.programAmount) t_sum_amount FROM cashback_transaction t LEFT JOIN account_user u ON t.user_id=u.id LEFT JOIN Partner p ON t.partner_id=p.id LEFT JOIN Category c ON p.main_category_id=c.id LEFT JOIN Category cp ON c.parent_id=cp.id WHERE {$where} AND p.status='active' AND ((c.id = {$mainCategoryId}) OR (cp.id = {$mainCategoryId})) GROUP BY u.id HAVING 0<t_count) x";
 
         $statement = $connection->prepare($queryText);
         $statement->execute();
