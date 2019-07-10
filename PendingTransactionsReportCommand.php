@@ -407,6 +407,7 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
 
                             if ($k3 !== 0) {
                                 $export[3][$k3][$k2] = $this->zScoreNumberOfPartnersVisited($connection, $currentPartnerIds, $userId, $date['start'], $date['end']);
+                                $export[4][$k3][$k2] = $this->zScoreNumberOfPartnersSpentAt($connection, $currentPartnerIds, $userId, $date['start'], $date['end']);
                             }
                         }
 
@@ -419,6 +420,7 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
                         ksort($export[1]);
                         ksort($export[2]);
                         ksort($export[3]);
+                        ksort($export[4]);
                     }
 
                     print_r($export);
@@ -991,6 +993,61 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
         $results = $statement->fetchAll();
 
         $x = empty($results[0]['visit_count']) ? 0.0 : floatval($results[0]['visit_count']);
+
+        return $this->calculateZScore($x, $avg, $std);
+    }
+
+    private function zScoreNumberOfPartnersSpentAt(Connection $connection, $partnerIds, $currentUserId, $start, $end) {
+        $whereTerms = array();
+
+        if (is_array($partnerIds)) {
+            if (1 < count($partnerIds)) {
+                $partnerIdsList = implode(',', $partnerIds);
+                $whereTerms[] = "( partner_id IN ({$partnerIdsList}) )";
+            } elseif (1 === count($partnerIds)) {
+                $whereTerms[] = "( partner_id = {$partnerIds[0]} )";
+            }
+        }
+
+        if ($start instanceof \DateTime) {
+            $whereTerms[] = "( '{$start->format('Y-m-d')}' <= `time` )";
+        }
+
+        if ($end instanceof \DateTime) {
+            $whereTerms[] = "( `time` < '{$end->format('Y-m-d')}' )";
+        }
+
+        $where = implode(' AND ', $whereTerms);
+
+        $queryText =
+            "SELECT AVG(x.p_count) AS `avg`, STD(x.p_count) AS `std`
+            FROM (
+                SELECT u.id u_id, COUNT(DISTINCT t.partner_id) AS p_count
+                FROM account_user u
+                LEFT JOIN cashback_transaction t ON u.id=t.user_id
+                WHERE {$where}
+                GROUP BY u.id
+                HAVING 0<p_count
+            ) x";
+
+        $statement = $connection->prepare($queryText);
+        $statement->execute();
+        $results = $statement->fetchAll();
+
+        $avg = empty($results[0]['avg']) ? 0.0 : floatval($results[0]['avg']);
+        $std = empty($results[0]['std']) ? 0.0 : floatval($results[0]['std']);
+
+        $queryText =
+            "SELECT u.id u_id, COUNT(DISTINCT t.partner_id) AS p_count
+            FROM account_user u
+            LEFT JOIN cashback_transaction t ON u.id=t.user_id
+            WHERE ( u.id = {$currentUserId} ) AND {$where}";
+
+        $statement = $connection->prepare($queryText);
+        $statement->execute();
+        $results = $statement->fetchAll();
+
+        $x = empty($results[0]['p_count']) ? 0.0 : floatval($results[0]['p_count']);
 
         return $this->calculateZScore($x, $avg, $std);
     }
