@@ -415,6 +415,7 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
                         $export[1][2][$k2] = $this->zScoreProgramAmountForMainCategory($connection, $mainCategoryId, $userId, $date['start'], $date['end']);
                         $export[2][2][$k2] = $this->zScoreTransactionCountForMainCategory($connection, $mainCategoryId, $userId, $date['start'], $date['end']);
                         $export[3][2][$k2] = $this->zScoreNumberOfPartnersVisitedForMainCategory($connection, $mainCategoryId, $userId, $date['start'], $date['end']);
+                        $export[4][2][$k2] = $this->zScoreNumberOfPartnersSpentAtForMainCategory($connection, $mainCategoryId, $userId, $date['start'], $date['end']);
 
                         ksort($export[0]);
                         ksort($export[1]);
@@ -1209,6 +1210,57 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
         $results = $statement->fetchAll();
 
         $x = empty($results[0]['t_sum_amount']) ? 0.0 : floatval($results[0]['t_sum_amount']);
+
+        return $this->calculateZScore($x, $avg, $std);
+    }
+
+    public function zScoreNumberOfPartnersSpentAtForMainCategory(Connection $connection, $mainCategoryId, $currentUserId, $start, $end) {
+        $whereTerms = array();
+
+        if ($start instanceof \DateTime) {
+            $whereTerms[] = "( '{$start->format('Y-m-d')}' <= t.`time` )";
+        }
+
+        if ($end instanceof \DateTime) {
+            $whereTerms[] = "( t.`time` < '{$end->format('Y-m-d')}' )";
+        }
+
+        $where = implode(' AND ', $whereTerms);
+
+        $queryText =
+            "SELECT AVG(x.p_count) AS `avg`, STD(x.p_count) AS `std`
+            FROM (
+                SELECT u.id u_id, COUNT(DISTINCT t.partner_id) AS p_count
+                FROM cashback_transaction t
+                LEFT JOIN account_user u ON t.user_id=u.id
+                LEFT JOIN Partner p ON t.partner_id=p.id
+                LEFT JOIN Category c ON p.main_category_id=c.id
+                LEFT JOIN Category cp ON c.parent_id=cp.id
+                WHERE {$where} AND p.status='active' AND ((c.id = {$mainCategoryId}) OR (cp.id = {$mainCategoryId}))
+                GROUP BY u.id
+            ) x";
+
+        $statement = $connection->prepare($queryText);
+        $statement->execute();
+        $results = $statement->fetchAll();
+
+        $avg = empty($results[0]['avg']) ? 0.0 : floatval($results[0]['avg']);
+        $std = empty($results[0]['std']) ? 0.0 : floatval($results[0]['std']);
+
+        $queryText =
+            "SELECT u.id u_id, COUNT(DISTINCT t.partner_id) p_count
+            FROM cashback_transaction t
+            LEFT JOIN account_user u ON t.user_id=u.id
+            LEFT JOIN Partner p ON t.partner_id=p.id
+            LEFT JOIN Category c ON p.main_category_id=c.id
+            LEFT JOIN Category cp ON c.parent_id=cp.id
+            WHERE ( u.id = {$currentUserId} ) AND {$where} AND p.status='active' AND ((c.id = {$mainCategoryId}) OR (cp.id = {$mainCategoryId}))";
+
+        $statement = $connection->prepare($queryText);
+        $statement->execute();
+        $results = $statement->fetchAll();
+
+        $x = empty($results[0]['p_count']) ? 0.0 : floatval($results[0]['p_count']);
 
         return $this->calculateZScore($x, $avg, $std);
     }
