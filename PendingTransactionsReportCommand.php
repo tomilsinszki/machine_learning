@@ -424,8 +424,32 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
                         ksort($export[4]);
                     }
 
-                    print_r($export);
-                    exit();
+                    $exportLineParams = array();
+
+                    $exportLineParams[] = "{$start->format('Y')}";
+                    $exportLineParams[] = "{$start->format('n')}";
+                    $exportLineParams[] = "{$userId}";
+                    $exportLineParams[] = "{$partnerId}";
+                    $exportLineParams[] = "{$mainCategoryId}";
+                    $exportLineParams[] = "{$gender}";
+
+                    foreach ($export as $k0 => $v0) {
+                        foreach ($v0 as $k1 => $v1) {
+                            foreach ($v1 as $k2 => $v2) {
+                                $exportLineParams[] = $v2;
+                            }
+                        }
+                    }
+
+                    $sumProgramAmount = $this->generalGetSumProgramAmount($connection, array($partnerId), $userId, $start, $end);
+                    $exportLineParams[] = (0.005 < $sumProgramAmount) ? 1 : 0;
+
+                    $exportLine = implode(',', $exportLineParams);
+
+                    echo("{$exportLine}\n\n\n");
+
+                    //print_r($export);
+                    //exit();
 
                     // xyz
                     /*
@@ -781,6 +805,14 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
         $whereTerms = array();
 
         if (is_array($partnerIds)) {
+            if (1 === count($partnerIds)) {
+                if (empty($partnerIds[0])) {
+                    return "-11.00";
+                }
+            }
+        }
+
+        if (is_array($partnerIds)) {
             if (1 < count($partnerIds)) {
                 $partnerIdsList = implode(',', $partnerIds);
                 $whereTerms[] = "( partner_id IN ({$partnerIdsList}) )";
@@ -892,6 +924,14 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
         $whereTerms = array();
 
         if (is_array($partnerIds)) {
+            if (1 === count($partnerIds)) {
+                if (empty($partnerIds[0])) {
+                    return "-11.00";
+                }
+            }
+        }
+
+        if (is_array($partnerIds)) {
             if (1 < count($partnerIds)) {
                 $partnerIdsList = implode(',', $partnerIds);
                 $whereTerms[] = "( partner_id IN ({$partnerIdsList}) )";
@@ -942,6 +982,14 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
 
     private function zScoreVisitCount(Connection $connection, $partnerIds, $currentUserId, $start, $end) {
         $whereTerms = array();
+
+        if (is_array($partnerIds)) {
+            if (1 === count($partnerIds)) {
+                if (empty($partnerIds[0])) {
+                    return "-11.00";
+                }
+            }
+        }
 
         if (is_array($partnerIds)) {
             if (1 < count($partnerIds)) {
@@ -1002,6 +1050,14 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
         $whereTerms = array();
 
         if (is_array($partnerIds)) {
+            if (1 === count($partnerIds)) {
+                if (empty($partnerIds[0])) {
+                    return "-11.00";
+                }
+            }
+        }
+
+        if (is_array($partnerIds)) {
             if (1 < count($partnerIds)) {
                 $partnerIdsList = implode(',', $partnerIds);
                 $whereTerms[] = "( partner_id IN ({$partnerIdsList}) )";
@@ -1055,6 +1111,14 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
 
     private function zScoreProgramAmount(Connection $connection, $partnerIds, $currentUserId, $start, $end) {
         $whereTerms = array();
+
+        if (is_array($partnerIds)) {
+            if (1 === count($partnerIds)) {
+                if (empty($partnerIds[0])) {
+                    return "-11.00";
+                }
+            }
+        }
 
         if (is_array($partnerIds)) {
             if (1 < count($partnerIds)) {
