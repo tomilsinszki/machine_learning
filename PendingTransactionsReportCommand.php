@@ -950,6 +950,7 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
 
         $where = implode(' AND ', $whereTerms);
 
+        // TODO: we should only look at users who bought something
         $queryText =
             "SELECT AVG(x.partner_count) AS `avg`, STD(x.partner_count) AS `std` 
             FROM (
@@ -1192,6 +1193,7 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
                 FROM (
                     SELECT t.user_id AS user_id, COUNT(DISTINCT t.id) AS t_count
                     FROM cashback_transaction t
+                    WHERE {$where}
                     GROUP BY t.user_id
                 ) tmp_t
                 LEFT JOIN PartnerVisit pv ON tmp_t.user_id=pv.user_id
