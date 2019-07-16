@@ -447,65 +447,6 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
                     $exportLine = implode(',', $exportLineParams);
 
                     echo("{$exportLine}\n\n\n");
-
-                    //print_r($export);
-                    //exit();
-
-                    // xyz
-                    /*
-                    foreach ($dates as $k2 => $date) {
-                        foreach (array(null, $userId) as $k4 => $currentUserId) {
-                            foreach (array(null, array($partnerId)) as $k3 => $currentPartnerIds) {
-                                $export[0][$k2][$k3][$k4] = $this->generalGetVisitCount($connection, $currentPartnerIds, $currentUserId, $date['start'], $date['end']);
-                                $export[1][$k2][$k3][$k4] = $this->generalGetSumProgramAmount($connection, $currentPartnerIds, $currentUserId, $date['start'], $date['end']);
-                            }
-                            $export[0][$k2][3][$k4] = $this->getVisitCountForMainCategory($connection, $mainCategoryId, $currentUserId, $date['start'], $date['end']);
-                            $export[1][$k2][3][$k4] = $this->getSumProgramAmountForMainCategory($connection, $mainCategoryId, $currentUserId, $date['start'], $date['end']);
-                        }
-                    }
-                    */
-
-                    /*
-                    $transactionStatement = $connection->prepare("SELECT SUM(programAmount) AS program_amount FROM cashback_transaction WHERE partner_id={$partnerId} AND user_id={$userId} AND '{$startString}'<=time AND time<='{$endString}'");
-                    $transactionStatement->execute();
-                    $transactionProgramAmountResults = $transactionStatement->fetchAll();
-                    $transactionSumProgramAmount = empty($transactionProgramAmountResults[0]['program_amount']) ? 0.0 : $transactionProgramAmountResults[0]['program_amount'];
-                    $transactionSumProgramAmount = floatval($transactionSumProgramAmount);
-                    $transactionSumProgramAmount = $this->calculateTarget($transactionSumProgramAmount);
-
-                    $output = "";
-
-                    $output .= "{$start->format('Y')}";
-                    $output .= ",";
-                    $output .= "{$start->format('n')}";
-                    $output .= ",";
-                    $output .= "{$userId}";
-                    $output .= ",";
-                    $output .= "{$monthsSinceSignup}";
-                    $output .= ",";
-                    $output .= "{$postalCodeDigits0}";
-                    $output .= ",";
-                    $output .= "{$postalCodeDigits1}";
-                    $output .= ",";
-                    $output .= "{$postalCodeDigits2}";
-                    $output .= ",";
-                    $output .= "{$postalCodeDigits3}";
-                    $output .= ",";
-                    $output .= "{$gender}";
-                    $output .= ",";
-                    $output .= "{$language}";
-                    $output .= ",";
-                    $output .= "{$age}";
-                    $output .= ",";
-                    $output .= "{$partnerId}";
-                    $output .= ",";
-                    $output .= "{$mainCategoryId}";
-                    $output .= ",";
-                    $output .= "{$countRecommendedPartnerIds}";
-                    $output .= ",";
-
-                    echo($output);
-                    */
                 }
             }
         }
@@ -950,12 +891,17 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
 
         $where = implode(' AND ', $whereTerms);
 
-        // TODO: we should only look at users who bought something
         $queryText =
-            "SELECT AVG(x.partner_count) AS `avg`, STD(x.partner_count) AS `std` 
+            "SELECT AVG(x.partner_count) AS `avg`, STD(x.partner_count) AS `std`
             FROM (
-                SELECT pv.user_id AS user_id, COUNT(DISTINCT pv.partner_id) AS partner_count
-                FROM PartnerVisit pv
+                SELECT tmp_t.user_id AS user_id, COUNT(DISTINCT pv.partner_id) AS partner_count
+                FROM (
+                    SELECT t.user_id AS user_id, COUNT(DISTINCT t.id) AS t_count
+                    FROM cashback_transaction t
+                    WHERE {$where}
+                    GROUP BY t.user_id
+                ) tmp_t
+                LEFT JOIN PartnerVisit pv ON tmp_t.user_id=pv.user_id
                 WHERE {$where} AND (pv.user_id IS NOT NULL)
                 GROUP BY pv.user_id
             ) x";
