@@ -235,7 +235,8 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
     private function loadUserIds() {
         $this->userIds = array();
 
-        $statement = $this->entityManager->getConnection()->prepare("SELECT u.id, SUM(programAmount) sum_program_amount FROM account_user u LEFT JOIN cashback_transaction t ON u.id=t.user_id WHERE u.locked=0 AND u.enabled=1 AND t.`time`<DATE_FORMAT(CURDATE(), '%Y-%m-01') - INTERVAL {$this->userBufferMonthCount} MONTH AND t.status='accepted' GROUP BY u.id HAVING {$this->userMinimumAcceptedTransactionAmount}<sum_program_amount ORDER BY u.id ASC");
+        //$statement = $this->entityManager->getConnection()->prepare("SELECT u.id, SUM(programAmount) sum_program_amount FROM account_user u LEFT JOIN cashback_transaction t ON u.id=t.user_id WHERE u.locked=0 AND u.enabled=1 AND t.`time`<DATE_FORMAT(CURDATE(), '%Y-%m-01') - INTERVAL {$this->userBufferMonthCount} MONTH AND t.status='accepted' GROUP BY u.id HAVING {$this->userMinimumAcceptedTransactionAmount}<sum_program_amount ORDER BY u.id ASC");
+        $statement = $this->entityManager->getConnection()->prepare("SELECT u.id FROM account_user u WHERE u.locked=0 AND u.enabled=1 AND roles='a:0:{}' AND (MOD(u.id, 10) = 0) ORDER BY u.id ASC");
         $statement->execute();
         $userIdResults = $statement->fetchAll();
 
@@ -324,7 +325,8 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
                     $language = '2';
                 }
 
-                $partnersStatement = $connection->prepare("SELECT p.id, p.main_category_id as category_id, c.parent_id as parent_category_id, SUM(t.programAmount) sum_program_amount FROM Partner p LEFT JOIN cashback_transaction t ON p.id=t.partner_id LEFT JOIN Category c ON p.main_category_id=c.id WHERE t.`time`<DATE_FORMAT(CURDATE(), '%Y-%m-01') - INTERVAL {$this->partnerBufferMonthCount} MONTH AND t.`status`='accepted' AND p.`status`='active' GROUP BY p.id HAVING 0<sum_program_amount");
+                //$partnersStatement = $connection->prepare("SELECT p.id, p.main_category_id as category_id, c.parent_id as parent_category_id, SUM(t.programAmount) sum_program_amount FROM Partner p LEFT JOIN cashback_transaction t ON p.id=t.partner_id LEFT JOIN Category c ON p.main_category_id=c.id WHERE t.`time`<DATE_FORMAT(CURDATE(), '%Y-%m-01') - INTERVAL {$this->partnerBufferMonthCount} MONTH AND t.`status`='accepted' AND p.`status`='active' GROUP BY p.id HAVING 0<sum_program_amount");
+                $partnersStatement = $connection->prepare("SELECT p.id, p.main_category_id as category_id, c.parent_id as parent_category_id FROM Partner p LEFT JOIN Category c ON p.main_category_id=c.id WHERE p.`status`='active'");
                 $partnersStatement->execute();
                 $partnerIdResults = $partnersStatement->fetchAll();
 
