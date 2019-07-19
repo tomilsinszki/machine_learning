@@ -245,6 +245,30 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
         }
     }
 
+    private function getAllPartnerIdVariations() {
+        $return = array();
+
+        $statement = $this->entityManager->getConnection()->prepare("SELECT id, slug, REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(LOWER(`slug`), '-1', ''), '-2', ''), '-ch', ''), '-deals', ''), '-de', ''), ' ', ''), '-3', '') AS normalized_slug, status FROM Partner ORDER BY slug;");
+        $statement->execute();
+        $results = $statement->fetchAll();
+
+        foreach ($results as $result) {
+            $partnerId = $result['id'];
+            $partnerNormalizedSlug = $result['normalized_slug'];
+
+            foreach ($results as $result2) {
+                $partnerId2 = $result2['id'];
+                $partnerNormalizedSlug2 = $result2['normalized_slug'];
+
+                if ($partnerNormalizedSlug === $partnerNormalizedSlug2) {
+                    $return[$partnerId][] = $partnerId2;
+                }
+            }
+        }
+
+        return $return;
+    }
+
     /**
      * @param InputInterface $input
      * @param OutputInterface $output
@@ -272,6 +296,8 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
 
         $this->loadMonthlyPeriods();
         $this->loadUserIds();
+
+        $partnerIdVariationsById = $this->getAllPartnerIdVariations();
 
         foreach ($this->periods as $periodName => $period) {
             foreach ($this->userIds as $userId) {
@@ -401,7 +427,27 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
 
                     $export = array();
 
+                    // TODO: partner ids here
+
                     foreach ($dates as $k2 => $date) {
+                        /*
+                        $partnerIdsWithVariations = $partnerIdVariationsById[$partnerId];
+
+                        $recommendedPartnerIdsWithVariations = array();
+                        foreach ($this->getRecommendedPartnerIds($connection, $partnerId) AS $recommendedPartnerId) {
+                            foreach ($partnerIdVariationsById[$recommendedPartnerId] AS $recommendedVariationPartnerIds) {
+                                foreach ($recommendedVariationPartnerIds as $recommendedVariationPartnerId) {
+                                    $recommendedPartnerIdsWithVariations[] = $recommendedVariationPartnerId;
+                                }
+                            }
+                        }
+                        $recommendedPartnerIds = array_unique($recommendedPartnerIdsWithVariations, SORT_NUMERIC);
+
+                        var_dump($partnerIdsWithVariations);
+                        var_dump($recommendedPartnerIds);
+                        exit();
+                        */
+
                         foreach (array(0 => array($partnerId), 1 => $this->getRecommendedPartnerIds($connection, $partnerId), 3 => null) as $k3 => $currentPartnerIds) {
                             $export[0][$k3][$k2] = $this->zScoreVisitCount($connection, $currentPartnerIds, $userId, $date['start'], $date['end']);
                             $export[1][$k3][$k2] = $this->zScoreProgramAmount($connection, $currentPartnerIds, $userId, $date['start'], $date['end']);
