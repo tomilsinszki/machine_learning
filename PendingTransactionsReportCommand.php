@@ -427,28 +427,17 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
 
                     $export = array();
 
-                    // TODO: partner ids here
+                    $partnerVariationIdsForCurrentPartner = $partnerIdVariationsById[$partnerId];
+
+                    $partnerVariationIdsForRecommendedPartners = array();
+                    foreach ($this->getRecommendedPartnerIds($connection, $partnerId) AS $recommendedPartnerId) {
+                        if (!empty($recommendedPartnerId)) {
+                            $partnerVariationIdsForRecommendedPartners = array_merge($partnerVariationIdsForRecommendedPartners, $partnerIdVariationsById[$recommendedPartnerId]);
+                        }
+                    }
 
                     foreach ($dates as $k2 => $date) {
-                        /*
-                        $partnerIdsWithVariations = $partnerIdVariationsById[$partnerId];
-
-                        $recommendedPartnerIdsWithVariations = array();
-                        foreach ($this->getRecommendedPartnerIds($connection, $partnerId) AS $recommendedPartnerId) {
-                            foreach ($partnerIdVariationsById[$recommendedPartnerId] AS $recommendedVariationPartnerIds) {
-                                foreach ($recommendedVariationPartnerIds as $recommendedVariationPartnerId) {
-                                    $recommendedPartnerIdsWithVariations[] = $recommendedVariationPartnerId;
-                                }
-                            }
-                        }
-                        $recommendedPartnerIds = array_unique($recommendedPartnerIdsWithVariations, SORT_NUMERIC);
-
-                        var_dump($partnerIdsWithVariations);
-                        var_dump($recommendedPartnerIds);
-                        exit();
-                        */
-
-                        foreach (array(0 => array($partnerId), 1 => $this->getRecommendedPartnerIds($connection, $partnerId), 3 => null) as $k3 => $currentPartnerIds) {
+                        foreach (array(0 => $partnerVariationIdsForCurrentPartner, 1 => $partnerVariationIdsForRecommendedPartners, 3 => null) as $k3 => $currentPartnerIds) {
                             $export[0][$k3][$k2] = $this->zScoreVisitCount($connection, $currentPartnerIds, $userId, $date['start'], $date['end']);
                             $export[1][$k3][$k2] = $this->zScoreProgramAmount($connection, $currentPartnerIds, $userId, $date['start'], $date['end']);
                             $export[2][$k3][$k2] = $this->zScoreTransactionCount($connection, $currentPartnerIds, $userId, $date['start'], $date['end']);
@@ -777,7 +766,7 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
 
     private function calculateZScore($x, $avg, $std) {
         if (empty($avg) or empty($std)) {
-            return "-11.00";
+            return "-10.00";
         }
 
         if (empty($x)) {
@@ -796,7 +785,7 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
         if (is_array($partnerIds)) {
             if (1 === count($partnerIds)) {
                 if (empty($partnerIds[0])) {
-                    return "-11.00";
+                    return "-10.00";
                 }
             }
         }
@@ -915,7 +904,7 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
         if (is_array($partnerIds)) {
             if (1 === count($partnerIds)) {
                 if (empty($partnerIds[0])) {
-                    return "-11.00";
+                    return "-10.00";
                 }
             }
         }
@@ -981,7 +970,7 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
         if (is_array($partnerIds)) {
             if (1 === count($partnerIds)) {
                 if (empty($partnerIds[0])) {
-                    return "-11.00";
+                    return "-10.00";
                 }
             }
         }
@@ -1047,7 +1036,7 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
         if (is_array($partnerIds)) {
             if (1 === count($partnerIds)) {
                 if (empty($partnerIds[0])) {
-                    return "-11.00";
+                    return "-10.00";
                 }
             }
         }
@@ -1110,7 +1099,7 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
         if (is_array($partnerIds)) {
             if (1 === count($partnerIds)) {
                 if (empty($partnerIds[0])) {
-                    return "-11.00";
+                    return "-10.00";
                 }
             }
         }
