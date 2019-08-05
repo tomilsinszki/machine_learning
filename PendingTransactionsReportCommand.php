@@ -484,7 +484,7 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
                     $exportLine = implode(',', $exportLineParams);
 
                     //if ((0.005 < $sumProgramAmount)) {
-                        echo("{$exportLine}\n\n\n");
+                        echo("{$exportLine}\n");
                     //}
                 }
             }
