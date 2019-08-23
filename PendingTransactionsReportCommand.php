@@ -80,6 +80,11 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
      */
     private $userMinimumAcceptedTransactionAmount = 0;
 
+    /**
+     * @var array
+     */
+    private $queryResultCache = array();
+
     protected function configure() {
         $this->setName('rabattcorner:pending:transactions');
         $this->setDescription('Pending Transaction List');
@@ -856,6 +861,7 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
         }
 
         $where = implode(' AND ', $whereTerms);
+        $where2 = "{$where} AND p.status='active' AND ((c.id = {$mainCategoryId}) OR (cp.id = {$mainCategoryId}))";
 
         $queryText =
             "SELECT AVG(x.partner_count) AS `avg`, STD(x.partner_count) AS `std`
@@ -872,13 +878,17 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
                 LEFT JOIN Partner p ON pv.partner_id=p.id
                 LEFT JOIN Category c ON p.main_category_id=c.id
                 LEFT JOIN Category cp ON c.parent_id=cp.id
-                WHERE {$where} AND p.status='active' AND ((c.id = {$mainCategoryId}) OR (cp.id = {$mainCategoryId}))
+                WHERE {$where2}
                 GROUP BY tmp_t.user_id
             ) x";
 
+        $results = $this->useCacheOrRunQuery(2, $connection, $where2, $queryText);
+
+        /*
         $statement = $connection->prepare($queryText);
         $statement->execute();
         $results = $statement->fetchAll();
+        */
 
         $avg = empty($results[0]['avg']) ? 0.0 : floatval($results[0]['avg']);
         $std = empty($results[0]['std']) ? 0.0 : floatval($results[0]['std']);
@@ -966,6 +976,52 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
         return $this->calculateZScore($x, $avg, $std);
     }
 
+    private function useCacheOrRunQueryForPartnerIds($cacheIndex, Connection $connection, $partnerIds, $where, $queryText) {
+        $shouldCacheResult = empty($partnerIds);
+
+        $hasCachedValue = false;
+        if (isset($this->queryResultCache[$cacheIndex][$where])) {
+            $hasCachedValue = true;
+        }
+
+        if ($hasCachedValue) {
+            $results = $this->queryResultCache[$cacheIndex][$where];
+        } else {
+            $statement = $connection->prepare($queryText);
+            $statement->execute();
+            $results = $statement->fetchAll();
+
+            if ($shouldCacheResult) {
+                $this->queryResultCache[$cacheIndex][$where] = $results;
+            }
+        }
+
+        return $results;
+    }
+
+    private function useCacheOrRunQuery($cacheIndex, Connection $connection, $where, $queryText) {
+        $shouldCacheResult = true;
+
+        $hasCachedValue = false;
+        if (isset($this->queryResultCache[$cacheIndex][$where])) {
+            $hasCachedValue = true;
+        }
+
+        if ($hasCachedValue) {
+            $results = $this->queryResultCache[$cacheIndex][$where];
+        } else {
+            $statement = $connection->prepare($queryText);
+            $statement->execute();
+            $results = $statement->fetchAll();
+
+            if ($shouldCacheResult) {
+                $this->queryResultCache[$cacheIndex][$where] = $results;
+            }
+        }
+
+        return $results;
+    }
+
     private function zScoreVisitCount(Connection $connection, $partnerIds, $currentUserId, $start, $end) {
         $whereTerms = array();
 
@@ -1011,9 +1067,13 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
                 GROUP BY tmp_t.user_id
             ) x";
 
+        $results = $this->useCacheOrRunQueryForPartnerIds(0, $connection, $partnerIds, $where, $queryText);
+
+        /*
         $statement = $connection->prepare($queryText);
         $statement->execute();
         $results = $statement->fetchAll();
+        */
 
         $avg = empty($results[0]['avg']) ? 0.0 : floatval($results[0]['avg']);
         $std = empty($results[0]['std']) ? 0.0 : floatval($results[0]['std']);
@@ -1170,6 +1230,7 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
         }
 
         $where = implode(' AND ', $whereTerms);
+        $where2 = "{$where} AND p.status='active' AND ((c.id = {$mainCategoryId}) OR (cp.id = {$mainCategoryId}))";
 
         $queryText =
             "SELECT AVG(x.visit_count) AS `avg`, STD(x.visit_count) AS `std`
@@ -1185,13 +1246,17 @@ class PendingTransactionsReportCommand extends ContainerAwareCommand
                 LEFT JOIN Partner p ON pv.partner_id=p.id
                 LEFT JOIN Category c ON p.main_category_id=c.id
                 LEFT JOIN Category cp ON c.parent_id=cp.id
-                WHERE {$where} AND p.status='active' AND ((c.id = {$mainCategoryId}) OR (cp.id = {$mainCategoryId}))
+                WHERE {$where2}
                 GROUP BY tmp_t.user_id
             ) x";
 
+        $results = $this->useCacheOrRunQuery(1, $connection, $where2, $queryText);
+
+        /*
         $statement = $connection->prepare($queryText);
         $statement->execute();
         $results = $statement->fetchAll();
+        */
 
         $avg = empty($results[0]['avg']) ? 0.0 : floatval($results[0]['avg']);
         $std = empty($results[0]['std']) ? 0.0 : floatval($results[0]['std']);
